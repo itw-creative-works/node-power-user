@@ -36,11 +36,11 @@ Main.prototype.process = async function (args) {
   }
 
   if (self.options.v || self.options.version || self.options['-v'] || self.options['-version']) {
-    return console.log(chalk.blue(`Node Power User is version ${chalk.bold(self.npu_packageJSON.version)}`));
+    return console.log(chalk.blue(`Node Power User is v${chalk.bold(self.npu_packageJSON.version)}`));
   }
 
   if (self.options.pv || self.options['project-version'] || self.options.project) {
-    return console.log(chalk.blue(`The current project (${chalk.bold(self.proj_packageJSON.name)}) is ${chalk.bold(self.proj_packageJSON.version)}`));
+    return console.log(chalk.blue(`The current project (${chalk.bold(self.proj_packageJSON.name)}) is v${chalk.bold(self.proj_packageJSON.version)}`));
   }
 
   if (self.options.clean) {

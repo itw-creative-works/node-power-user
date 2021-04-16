@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Quick tools for developing Firebase functions",
   "main": "./src/cli.js",
   "bin": {
