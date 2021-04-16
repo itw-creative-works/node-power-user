@@ -40,7 +40,7 @@ Main.prototype.process = async function (args) {
   }
 
   if (self.options.pv || self.options['project-version'] || self.options.project) {
-    return console.log(chalk.blue(`The current project (${chalk.bold(self.npu_packageJSON.name)}) is ${chalk.bold(self.npu_packageJSON.version)}`));
+    return console.log(chalk.blue(`The current project (${chalk.bold(self.proj_packageJSON.name)}) is ${chalk.bold(self.proj_packageJSON.version)}`));
   }
 
   if (self.options.clean) {
