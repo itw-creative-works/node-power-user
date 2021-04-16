@@ -36,13 +36,17 @@ Main.prototype.process = async function (args) {
   }
 
   if (self.options.v || self.options.version || self.options['-v'] || self.options['-version']) {
-    console.log(chalk.blue(`Node Power User is version: ${self.npu_packageJSON.version}`));
+    return console.log(chalk.blue(`Node Power User is version ${chalk.bold(self.npu_packageJSON.version)}`));
+  }
+
+  if (self.options.pv || self.options['project-version'] || self.options.project) {
+    return console.log(chalk.blue(`The current project (${chalk.bold(self.npu_packageJSON.name)}) is ${chalk.bold(self.npu_packageJSON.version)}`));
   }
 
   if (self.options.clean) {
     const NPM_CLEAN = 'rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install && npm rb';
     console.log(chalk.blue(`Running: ${NPM_CLEAN}...`));
-    await asyncCommand(NPM_CLEAN)
+    return await asyncCommand(NPM_CLEAN)
     .then(r => {
       console.log(chalk.green(`Finished cleaning`));
     })
@@ -52,7 +56,7 @@ Main.prototype.process = async function (args) {
   }
 
   if (self.options.bump) {
-    bump(self);
+    return bump(self);
   }
 
 
