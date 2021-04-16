@@ -1,0 +1,43 @@
+{
+  "name": "node-power-user",
+  "version": "0.0.1",
+  "description": "Quick tools for developing Firebase functions",
+  "main": "./src/cli.js",
+  "bin": {
+    "npu": "./bin/npu",
+    "node-power-user": "./bin/npu",
+    "nodepoweruser": "./bin/npu"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node ./src/cli.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/itw-creative-works/node-power-user.git"
+  },
+  "keywords": [
+    "cli",
+    "backend manager",
+    "firebase"
+  ],
+  "author": "ITW Creative Works",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/itw-creative-works/node-power-user/issues"
+  },
+  "homepage": "https://itwcreativeworks.com",
+  "dependencies": {
+    "chalk": "^4.1.0",
+    "fs-jetpack": "^4.1.0",
+    "inquirer": "^8.0.0",
+    "json5": "^2.2.0",
+    "lodash": "^4.17.21",
+    "semver": "^7.3.5",
+    "yargs": "^16.2.0"
+  },
+  "files": [
+    "bin/",
+    "src/"
+  ]
+}
