@@ -42,12 +42,12 @@ After installing via NPM, you can use the CLI with the `npu` command.
 ## Example CLI Usage
 Note: you may have to run cli commands with `npx npu <command>` if you install this package locally.
   * `npu v`: Check version of node-power-user.
-  * `npu pv`: Check version of the current project
-  * `npu clean`: Clean your node project (runs `rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install && npm rb`)
-  * `npu bump`: Bump your project's version
-    * `npu bump 1`: Bump the last number (`patch` version);
-    * `npu bump 2`: Bump the middle number (`minor` version);
-    * `npu bump 3`: Bump the first number (`major` version);
+  * `npu pv`: Check version of the current project.
+  * `npu clean`: Clean your node project (runs `rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install && npm rb`).
+  * `npu bump`: Bump your project's version.
+    * `npu bump 1`: Bump the last number (`patch` version).
+    * `npu bump 2`: Bump the middle number (`minor` version).
+    * `npu bump 3`: Bump the first number (`major` version).
 
 ## Final Words
 If you are still having difficulty, we would love for you to post a question to [the Node Power User issues page](https://github.com/itw-creative-works/node-power-user/issues). It is much easier to answer questions that include your code and relevant files! So if you can provide them, we'd be extremely grateful (and more likely to help you find the answer!)
