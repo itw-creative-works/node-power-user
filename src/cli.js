@@ -44,7 +44,8 @@ Main.prototype.process = async function (args) {
   }
 
   if (self.options.clean) {
-    const NPM_CLEAN = 'rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install && npm rb';
+    const NPM_INSTALL_FLAG = self.options['--no-optional'] || self.options['-no-optional'] || self.options['no-optional'] ? '--no-optional' : ''
+    const NPM_CLEAN = `rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install ${NPM_INSTALL_FLAG} && npm rb`;
     console.log(chalk.blue(`Running: ${NPM_CLEAN}...`));
     return await asyncCommand(NPM_CLEAN)
     .then(r => {
