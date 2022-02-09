@@ -1,7 +1,7 @@
 {
   "name": "node-power-user",
   "version": "0.0.8",
-  "description": "Quick tools for developing Firebase functions",
+  "description": "Easy tools for every Node.js developer!",
   "main": "./src/cli.js",
   "bin": {
     "npu": "./bin/npu",
