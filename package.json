@@ -1,16 +1,17 @@
 {
   "name": "node-power-user",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "description": "Easy tools for every Node.js developer!",
-  "main": "./src/cli.js",
+  "main": "dist/cli.js",
   "bin": {
-    "npu": "./bin/npu",
-    "node-power-user": "./bin/npu",
-    "nodepoweruser": "./bin/npu"
+    "npu": "bin/npu",
+    "node-power-user": "bin/npu",
+    "nodepoweruser": "bin/npu"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node ./src/cli.js"
+    "start": "node ./src/cli.js",
+    "prepare": "node ./src/prepare.js"
   },
   "repository": {
     "type": "git",
@@ -29,9 +30,9 @@
   "homepage": "https://itwcreativeworks.com",
   "dependencies": {
     "chalk": "^4.1.0",
-    "fs-jetpack": "^4.1.0",
     "inquirer": "^8.0.0",
     "json5": "^2.2.0",
+    "keychain": "^1.3.0",
     "lodash": "^4.17.21",
     "semver": "^7.3.5",
     "yargs": "^16.2.0"
@@ -39,5 +40,8 @@
   "files": [
     "bin/",
     "src/"
-  ]
+  ],
+  "devDependencies": {
+    "fs-jetpack": "^4.3.1"
+  }
 }
