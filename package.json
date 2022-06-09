@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/cli.js",
   "bin": {

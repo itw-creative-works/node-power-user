@@ -57,7 +57,7 @@ Main.prototype.process = async function (args) {
       console.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.devDependencies[dep]}`));
     });
 
-    console.log(chalk.blue.bold(`\Peer Dependencies:`));
+    console.log(chalk.blue.bold(`\nPeer Dependencies:`));
     Object.keys(self.proj_packageJSON.peerDependencies || {})
     .forEach((dep, i) => {
       console.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.peerDependencies[dep]}`));
