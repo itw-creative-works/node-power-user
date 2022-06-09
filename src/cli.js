@@ -17,7 +17,8 @@ const JSON5 = require('json5');
 function Main() {}
 
 Main.prototype.process = async function (args) {
-  let self = this;
+  const self = this;
+  args = args || process.argv
   self.options = {};
   self.argv = argv;
   self.npu_packageJSON = require('../package.json');
@@ -41,6 +42,28 @@ Main.prototype.process = async function (args) {
 
   if (self.options.pv || self.options['project-version'] || self.options.project) {
     return console.log(chalk.blue(`The current project (${chalk.bold(self.proj_packageJSON.name)}) is v${chalk.bold(self.proj_packageJSON.version)}`));
+  }
+
+  if (self.options.lp || self.options.listpackages || self.options['-lp'] || self.options['-listpackages']) {
+    console.log(chalk.blue.bold(`Dependencies:`));
+    Object.keys(self.proj_packageJSON.dependencies || {})
+    .forEach((dep, i) => {
+      console.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.dependencies[dep]}`));
+    });
+
+    console.log(chalk.blue.bold(`\nDev Dependencies:`));
+    Object.keys(self.proj_packageJSON.devDependencies || {})
+    .forEach((dep, i) => {
+      console.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.devDependencies[dep]}`));
+    });
+
+    console.log(chalk.blue.bold(`\Peer Dependencies:`));
+    Object.keys(self.proj_packageJSON.peerDependencies || {})
+    .forEach((dep, i) => {
+      console.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.peerDependencies[dep]}`));
+    });
+
+    return;
   }
 
   if (self.options.clean) {

@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "0.0.10",
+  "version": "0.0.11",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/cli.js",
   "bin": {
@@ -10,8 +10,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node ./src/cli.js",
-    "prepare": "node ./src/prepare.js"
+    "start": "node -e 'new (require(`./src/cli.js`))().process()'",
+    "prepare": "node -e 'require(`prepare-package`)'"
   },
   "repository": {
     "type": "git",
@@ -41,5 +41,8 @@
   "files": [
     "bin/",
     "src/"
-  ]
+  ],
+  "devDependencies": {
+    "prepare-package": "^0.0.6"
+  }
 }
