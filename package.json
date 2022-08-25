@@ -1,16 +1,16 @@
 {
   "name": "node-power-user",
-  "version": "0.0.13",
+  "version": "0.0.16",
   "description": "Easy tools for every Node.js developer!",
-  "main": "dist/cli.js",
+  "main": "dist/index.js",
   "bin": {
     "npu": "bin/npu",
     "node-power-user": "bin/npu",
     "nodepoweruser": "bin/npu"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node -e 'new (require(`./src/cli.js`))().process()'",
+    "test": "npm run prepare && ./node_modules/mocha/bin/mocha test/ --recursive --timeout=10000",
+    "start": "npm run prepare && node -e 'new (require(`./dist/index.js`))().process()'",
     "prepare": "node -e 'require(`prepare-package`)'"
   },
   "repository": {
@@ -43,6 +43,7 @@
     "src/"
   ],
   "devDependencies": {
+    "mocha": "^8.4.0",
     "prepare-package": "^0.0.12"
   }
 }

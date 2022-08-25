@@ -14,14 +14,21 @@ const { spawn, exec } = require('child_process');
 const argv = require('yargs').argv;
 const JSON5 = require('json5');
 
-function Main() {}
+function Main() {
+
+}
 
 Main.prototype.process = async function (args) {
   const self = this;
   args = args || process.argv
   self.options = {};
   self.argv = argv;
-  self.npu_packageJSON = require('../package.json');
+
+  try {
+    self.npu_packageJSON = require('../package.json');
+  } catch (error) {
+    throw new Error('This project does not contain a valid package.json file!')
+  }
 
   try {
     self.proj_path = process.cwd();
@@ -32,50 +39,68 @@ Main.prototype.process = async function (args) {
     return
   }
 
-  for (var i = 0; i < args.length; i++) {
-    self.options[args[i]] = true;
+  if (Array.isArray(args)) {
+    for (var i = 0; i < args.length; i++) {
+      self.options[args[i]] = true;
+    }    
+  } else {
+    Object.keys(args)
+    .forEach((arg, i) => {
+      self.options[arg] = args[arg];
+    });
+  }
+
+
+  if (self.options.debug) {
+    console.log('options:', self.options); 
   }
 
   if (self.options.v || self.options.version || self.options['-v'] || self.options['-version']) {
-    return console.log(chalk.blue(`Node Power User is v${chalk.bold(self.npu_packageJSON.version)}`));
+    self.log(chalk.blue(`Node Power User is v${chalk.bold(self.npu_packageJSON.version)}`));
+    return self.npu_packageJSON.version;
   }
 
   if (self.options.pv || self.options['project-version'] || self.options.project) {
-    return console.log(chalk.blue(`The current project (${chalk.bold(self.proj_packageJSON.name)}) is v${chalk.bold(self.proj_packageJSON.version)}`));
+    self.log(chalk.blue(`The current project (${chalk.bold(self.proj_packageJSON.name)}) is v${chalk.bold(self.proj_packageJSON.version)}`));
+    return self.proj_packageJSON.versio
   }
 
   if (self.options.lp || self.options.listpackages || self.options['-lp'] || self.options['-listpackages']) {
-    console.log(chalk.blue.bold(`Dependencies:`));
+    self.log(chalk.blue.bold(`Dependencies:`));
     Object.keys(self.proj_packageJSON.dependencies || {})
     .forEach((dep, i) => {
-      console.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.dependencies[dep]}`));
+      self.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.dependencies[dep]}`));
     });
 
-    console.log(chalk.blue.bold(`\nDev Dependencies:`));
+    self.log(chalk.blue.bold(`\nDev Dependencies:`));
     Object.keys(self.proj_packageJSON.devDependencies || {})
     .forEach((dep, i) => {
-      console.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.devDependencies[dep]}`));
+      self.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.devDependencies[dep]}`));
     });
 
-    console.log(chalk.blue.bold(`\nPeer Dependencies:`));
+    self.log(chalk.blue.bold(`\nPeer Dependencies:`));
     Object.keys(self.proj_packageJSON.peerDependencies || {})
     .forEach((dep, i) => {
-      console.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.peerDependencies[dep]}`));
+      self.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.peerDependencies[dep]}`));
     });
 
-    return;
+    return {
+      dependencies: self.proj_packageJSON.dependencies,
+      devDependencies: self.proj_packageJSON.devDependencies,
+      peerDependencies: self.proj_packageJSON.peerDependencies,
+    };
   }
 
   if (self.options.clean) {
     const NPM_INSTALL_FLAG = self.options['--no-optional'] || self.options['-no-optional'] || self.options['no-optional'] ? '--no-optional' : ''
     const NPM_CLEAN = `rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install ${NPM_INSTALL_FLAG} && npm rb`;
-    console.log(chalk.blue(`Running: ${NPM_CLEAN}...`));
+    self.log(chalk.blue(`Running: ${NPM_CLEAN}...`));
     return await asyncCommand(NPM_CLEAN)
     .then(r => {
-      console.log(chalk.green(`Finished cleaning`));
+      self.log(chalk.green(`Finished cleaning`));
     })
     .catch(e => {
-      console.log(chalk.green(`Error cleaning: ${e}`));
+      self.log(chalk.green(`Error cleaning: ${e}`));
     })
   }
 
@@ -84,6 +109,14 @@ Main.prototype.process = async function (args) {
   }
 
 
+};
+
+Main.prototype.log = function () {
+  const self = this;
+
+  if (self.options.log) {
+    console.log(...arguments);
+  }
 };
 
 module.exports = Main;
@@ -96,7 +129,7 @@ function bump(self) {
   let newVersion = [semver.major(version), semver.minor(version), semver.patch(version)];
   let newVersionPost = version.split('-')[1];
   let newVersionString = '';
-
+  
   if (self.options.break || self.options.breaking || self.options.major || self.options['3']) {
     level = 'breaking';
     newVersion[0]++;
@@ -116,7 +149,9 @@ function bump(self) {
 
   jetpack.write(self.proj_packageJSONPath, self.proj_packageJSON);
 
-  console.log(chalk.blue(`Bumped package.json from ${chalk.bold(version)} to ${chalk.bold(newVersionString)}`));
+  self.log(chalk.blue(`Bumped package.json from ${chalk.bold(version)} to ${chalk.bold(newVersionString)}`));
+
+  return newVersionString;
 }
 
 
