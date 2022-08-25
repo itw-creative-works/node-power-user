@@ -26,8 +26,11 @@ Main.prototype.process = async function (args) {
 
   try {
     self.npu_packageJSON = require('../package.json');
-  } catch (error) {
-    throw new Error('This project does not contain a valid package.json file!')
+  } catch (e) {
+    self.npu_packageJSON = {
+      version: '0.0.0'
+    }
+    console.error(chalk.red(`This project does not contain a valid package.json file!: \n${e}`));
   }
 
   try {
@@ -50,12 +53,11 @@ Main.prototype.process = async function (args) {
     });
   }
 
-
-  if (self.options.debug) {
+  if (self.options.d || self.options.debug || self.options['-d'] || self.options['--debug']) {
     console.log('options:', self.options); 
   }
 
-  if (self.options.v || self.options.version || self.options['-v'] || self.options['-version']) {
+  if (self.options.v || self.options.version || self.options['-v'] || self.options['--version']) {
     self.log(chalk.blue(`Node Power User is v${chalk.bold(self.npu_packageJSON.version)}`));
     return self.npu_packageJSON.version;
   }
@@ -65,7 +67,7 @@ Main.prototype.process = async function (args) {
     return self.proj_packageJSON.versio
   }
 
-  if (self.options.lp || self.options.listpackages || self.options['-lp'] || self.options['-listpackages']) {
+  if (self.options.lp || self.options.listpackages || self.options['-lp'] || self.options['--listpackages']) {
     self.log(chalk.blue.bold(`Dependencies:`));
     Object.keys(self.proj_packageJSON.dependencies || {})
     .forEach((dep, i) => {
@@ -114,7 +116,7 @@ Main.prototype.process = async function (args) {
 Main.prototype.log = function () {
   const self = this;
 
-  if (self.options.log) {
+  if (self.options.lo !== false) {
     console.log(...arguments);
   }
 };
