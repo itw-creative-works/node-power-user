@@ -4,7 +4,6 @@
 
 // https://www.sitepoint.com/javascript-command-line-interface-cli-node-js/
 // https://github.com/sitepoint-editors/ginit
-
 const jetpack = require('fs-jetpack');
 const chalk = require('chalk');
 const _ = require('lodash');
@@ -19,7 +18,7 @@ function Main() {
 }
 
 Main.prototype.process = async function (args) {
-  const self = this;
+const self = this;
   args = args || process.argv
   self.options = {};
   self.argv = argv;
@@ -27,10 +26,7 @@ Main.prototype.process = async function (args) {
   try {
     self.npu_packageJSON = require('../package.json');
   } catch (e) {
-    self.npu_packageJSON = {
-      version: '0.0.0'
-    }
-    console.error(chalk.red(`This project does not contain a valid package.json file!: \n${e}`));
+    throw new Error(`NPU does not contain a valid package.json file!: \n${e}`);
   }
 
   try {
@@ -38,8 +34,14 @@ Main.prototype.process = async function (args) {
     self.proj_packageJSONPath = path.resolve(self.proj_path, './package.json');
     self.proj_packageJSON = require(self.proj_packageJSONPath);
   } catch (e) {
-    console.error(chalk.red(`Could not read package.json: ${e}`));
-    return
+    self.proj_packageJSON = {
+      name: 'Unknown Name',
+      version: '0.0.0',
+      dependencies: {},
+      devDependencies: {},
+      peerDependencies: {},
+    }
+    console.error(chalk.red(`This project does not contain a valid package.json file!: \n${e}`));
   }
 
   if (Array.isArray(args)) {
@@ -64,7 +66,7 @@ Main.prototype.process = async function (args) {
 
   if (self.options.pv || self.options['project-version'] || self.options.project) {
     self.log(chalk.blue(`The current project (${chalk.bold(self.proj_packageJSON.name)}) is v${chalk.bold(self.proj_packageJSON.version)}`));
-    return self.proj_packageJSON.versio
+    return self.proj_packageJSON.version;
   }
 
   if (self.options.lp || self.options.listpackages || self.options['-lp'] || self.options['--listpackages']) {
