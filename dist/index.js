@@ -12,6 +12,8 @@ const path = require('path');
 const { spawn, exec } = require('child_process');
 const argv = require('yargs').argv;
 const JSON5 = require('json5');
+const { isEqual } = require('lodash');
+// const npm = require('npm');
 
 function Main() {
 
@@ -71,6 +73,7 @@ const self = this;
 
   if (self.options.lp || self.options.listpackages || self.options['-lp'] || self.options['--listpackages']) {
     self.log(chalk.blue.bold(`Dependencies:`));
+   
     Object.keys(self.proj_packageJSON.dependencies || {})
     .forEach((dep, i) => {
       self.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.dependencies[dep]}`));
@@ -93,6 +96,42 @@ const self = this;
       devDependencies: self.proj_packageJSON.devDependencies,
       peerDependencies: self.proj_packageJSON.peerDependencies,
     };
+  }
+
+  if (self.options.mm || self.options.matchmodules || self.options.match || self.options['-mm'] || self.options['--matchmodules'] || self.options['--match']) {
+    self.log(chalk.blue.bold(`Match:`));
+
+    const response = {};
+    const isEqualFn = require('semver/functions/eq')
+    const coerceFn = require('semver/functions/coerce')
+    
+    Object.keys(self.proj_packageJSON.dependencies || {})
+    .forEach(async (dep, i) => {
+      const packageVersion = coerceFn(self.proj_packageJSON.dependencies[dep]);
+      const installedVersion = coerceFn(
+        (await asyncCommand(`npm list ${dep} --depth=0 | grep ${dep}`))
+          .split(' ')[1]
+          .split('@')[1]
+      );
+      const isEqual = isEqualFn(installedVersion, packageVersion);
+      const verb = isEqual ? 'green' : 'yellow'
+
+      response[dep] = {
+        isEqual: isEqual,
+        package: packageVersion,
+        installed: installedVersion,
+      }
+
+      self.log(chalk[verb](`${dep}: ${packageVersion} = ${installedVersion}`));
+    });
+
+    // self.log(chalk.blue.bold(`\nDev Dependencies:`));
+    // Object.keys(self.proj_packageJSON.devDependencies || {})
+    // .forEach((dep, i) => {
+    //   self.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.devDependencies[dep]}`));
+    // });
+
+    return response;  
   }
 
   if (self.options.clean) {
