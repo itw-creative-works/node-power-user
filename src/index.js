@@ -98,7 +98,7 @@ const self = this;
     };
   }
 
-  if (self.options.mm || self.options.matchmodules || self.options.match || self.options['-mm'] || self.options['--matchmodules'] || self.options['--match']) {
+  if (self.options.out || self.options.outdated || self.options.match || self.options['-o'] || self.options['--outdated'] || self.options['--match']) {
     self.log(chalk.blue.bold(`Match:`));
 
     const response = {};
