@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "0.0.22",
+  "version": "0.0.23",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/index.js",
   "bin": {
@@ -11,7 +11,7 @@
   "scripts": {
     "test": "npm run prepare && ./node_modules/mocha/bin/mocha test/ --recursive --timeout=10000",
     "start": "npm run prepare && node -e 'new (require(`./dist/index.js`))().process()'",
-    "prepare": "node -e 'require(`prepare-package`)'"
+    "prepare": "node -e 'require(`prepare-package`)()'"
   },
   "repository": {
     "type": "git",
@@ -44,6 +44,6 @@
   ],
   "devDependencies": {
     "mocha": "^8.4.0",
-    "prepare-package": "^0.0.13"
+    "prepare-package": "^0.0.16"
   }
 }

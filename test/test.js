@@ -37,11 +37,25 @@ describe(`${package.name}`, () => {
      
       // Normal
       it('project-version => project-version', async () => {
-        return assert.equal(await library.process({'project-version': true, log: true, debug: false}), package['project-version']);
+        return assert.equal(await library.process({'project-version': true, log: true, debug: false}), package.version);
       });
 
     });
 
   });  
+
+  describe('.outdated()', () => {
+
+    describe('outdated', () => {
+     
+      // Normal
+      it('outdated => outdated', async () => {
+        await library.process({'outdated': true, log: true, debug: false})
+        return assert.equal(true, true);
+      });
+
+    });
+
+  });    
 
 })

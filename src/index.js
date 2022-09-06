@@ -13,6 +13,8 @@ const { spawn, exec } = require('child_process');
 const argv = require('yargs').argv;
 const JSON5 = require('json5');
 const { isEqual } = require('lodash');
+const semverIsEqual = require('semver/functions/eq')
+const semverCoerce = require('semver/functions/coerce')
 // const npm = require('npm');
 
 function Main() {
@@ -99,21 +101,20 @@ const self = this;
   }
 
   if (self.options.out || self.options.outdated || self.options.match || self.options['-o'] || self.options['--outdated'] || self.options['--match']) {
-    self.log(chalk.blue.bold(`Match:`));
+    self.log(chalk.blue.bold(`Outdated:`));
+    self.log(chalk.green(`name: package = installed`));
 
     const response = {};
-    const isEqualFn = require('semver/functions/eq')
-    const coerceFn = require('semver/functions/coerce')
     
     Object.keys(self.proj_packageJSON.dependencies || {})
     .forEach(async (dep, i) => {
-      const packageVersion = coerceFn(self.proj_packageJSON.dependencies[dep]);
-      const installedVersion = coerceFn(
+      const packageVersion = _coerce(self.proj_packageJSON.dependencies[dep]);
+      const installedVersion = _coerce(
         (await asyncCommand(`npm list ${dep} --depth=0 | grep ${dep}`))
           .split(' ')[1]
           .split('@')[1]
       );
-      const isEqual = isEqualFn(installedVersion, packageVersion);
+      const isEqual = _isEqual(installedVersion, packageVersion);
       const verb = isEqual ? 'green' : 'yellow'
 
       response[dep] = {
@@ -209,4 +210,20 @@ async function asyncCommand(command) {
       }
     });
   });
+}
+
+function _coerce(v) {
+  try {
+    return semverCoerce(v)
+  } catch (e) {
+    return '0.0.0'
+  }
+}
+
+function _isEqual(v1, v2) {
+  try {
+    return semverIsEqual(v1, v2)
+  } catch (e) {
+    return false;
+  }
 }
