@@ -110,9 +110,10 @@ const self = this;
     .forEach(async (dep, i) => {
       const packageVersion = _coerce(self.proj_packageJSON.dependencies[dep]);
       const installedVersion = _coerce(
-        (await asyncCommand(`npm list ${dep} --depth=0 | grep ${dep}`))
-          .split(' ')[1]
-          .split('@')[1]
+        _getVersion(
+          (await asyncCommand(`npm list ${dep} --depth=0 | grep ${dep}`))
+            .split(' ')[1]
+        )
       );
       const isEqual = _isEqual(installedVersion, packageVersion);
       const verb = isEqual ? 'green' : 'yellow'
@@ -226,4 +227,9 @@ function _isEqual(v1, v2) {
   } catch (e) {
     return false;
   }
+}
+
+function _getVersion(v) {
+  v = v.split('@');
+  return v[v.length - 1]
 }
