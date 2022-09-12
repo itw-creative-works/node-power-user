@@ -15,6 +15,10 @@ const JSON5 = require('json5');
 const { isEqual } = require('lodash');
 const semverIsEqual = require('semver/functions/eq')
 const semverCoerce = require('semver/functions/coerce')
+const table = require('table').table;
+const Npm = require('npm-api');
+const os = require('os');
+
 // const npm = require('npm');
 
 function Main() {
@@ -101,13 +105,31 @@ const self = this;
   }
 
   if (self.options.out || self.options.outdated || self.options.match || self.options['-o'] || self.options['--outdated'] || self.options['--match']) {
-    self.log(chalk.blue.bold(`Outdated:`));
-    self.log(chalk.green(`name: package = installed`));
+    // self.log(chalk.blue.bold(`Outdated:`));
+    // self.log(chalk.green(`name: package = installed`));
+
+    const data = [
+      ['Package', 'package.json', 'Intalled', 'Latest'],
+    ];
+
+    const config = {
+      columnDefault: {
+        width: 10,
+      },
+      header: {
+        alignment: 'center',
+        content: 'Outdated and mismatched packages',
+      },
+    }       
 
     const response = {};
+
+    const depKeys = Object.keys(self.proj_packageJSON.dependencies || {});
+
+    let bumpCommand = '';
     
-    Object.keys(self.proj_packageJSON.dependencies || {})
-    .forEach(async (dep, i) => {
+    for (var i = 0; i < depKeys.length; i++) {
+      const dep = depKeys[i];
       const packageVersion = _coerce(self.proj_packageJSON.dependencies[dep]);
       const installedVersion = _coerce(
         _getVersion(
@@ -115,31 +137,151 @@ const self = this;
             .split(' ')[1]
         )
       );
+      const latestVersion = await getLatestVersion(dep);
       const isEqual = _isEqual(installedVersion, packageVersion);
-      const verb = isEqual ? 'green' : 'yellow'
+      const isLatest = _isEqual(packageVersion, latestVersion);
+      const verbLocal = isEqual ? 'green' : 'yellow';
+      const verbRemote = isLatest ? 'green' : 'red';
+
+      if (!isEqual) {
+        bumpCommand += `npm i ${dep}@${installedVersion} && `
+      }
+
+      // function _color(array) {
+      //   array.forEach((item, i) => {
+      //     array[i] = chalk[verb](item);
+      //   });
+      //   return array;
+      // }
+      // data.push(_color([ dep, packageVersion, installedVersion, latestVersion]))
+
+      // function _color(s) {
+      //   return chalk[verb](s);
+      // }
+
+      data.push([
+        dep, 
+        packageVersion, 
+        chalk[verbLocal](installedVersion), 
+        chalk[verbRemote](latestVersion), 
+      ])
 
       response[dep] = {
         isEqual: isEqual,
+        isLatest: isLatest,
         package: packageVersion,
         installed: installedVersion,
+        latest: latestVersion,
       }
 
-      self.log(chalk[verb](`${dep}: ${packageVersion} = ${installedVersion}`));
-    });
+      // self.log(chalk[verb](`${dep}: ${packageVersion} = ${installedVersion}`));
+    };
 
     // self.log(chalk.blue.bold(`\nDev Dependencies:`));
     // Object.keys(self.proj_packageJSON.devDependencies || {})
     // .forEach((dep, i) => {
     //   self.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.devDependencies[dep]}`));
-    // });
+    // }); 
+
+    console.log(table(data, config));
+
+    if (bumpCommand) {
+      bumpCommand = bumpCommand.replace(/&&\s$/ig, '')
+      inquirer.prompt([
+        {
+          type: 'confirm',
+          name: 'bump',
+          message: 'Would you like to bump the package.json versions?',
+          default: true,
+        }
+      ])
+      .then(async (answer) => {
+        if (answer.bump) {
+          asyncCommand(bumpCommand);
+        } else {
+        }
+      })           
+    } 
 
     return response;  
+  }
+
+  if (self.options.global || self.options['-g'] || self.options['--global']) {
+    const parentPath = `/Users/${os.userInfo().username}/.nvm/versions/node`;
+    const versions = jetpack.list(parentPath);
+    const currentNode = process.versions.node;
+
+    const response = {};
+
+    // console.log(chalk.bold.blue('NVM Global Modules'));
+
+    for (var i = 0; i < versions.length; i++) {
+      try {
+        const parsed = semverCoerce(versions[i]);
+        const lib = path.resolve(parentPath, `v${parsed.version}`, 'lib', 'node_modules');
+
+        const modules = jetpack.list(lib);
+
+        const data = [
+          ['Package', 'package.json', 'latest'],
+        ];
+
+        const config = {
+          columnDefault: {
+            width: 10,
+          },
+          header: {
+            alignment: 'center',
+            content: `Global packages for v${parsed.version}`,
+          },
+        }    
+
+        response[parsed.version] = {};
+
+        for (var j = 0; j < modules.length; j++) {
+          const mod = modules[j];
+          const packagePath = path.resolve(lib, mod, 'package.json');
+          try {
+            const package = require(packagePath);  
+
+            const packageVersion = package.version;
+            const latestVersion = await getLatestVersion(mod);
+            // const isEqual = _isEqual(installedVersion, packageVersion);
+            const isLatest = _isEqual(packageVersion, latestVersion);
+            // const verbLocal = isEqual ? 'green' : 'yellow';
+            const verbRemote = isLatest ? 'green' : 'red';            
+
+            data.push([
+              mod, 
+              packageVersion,
+              chalk[verbRemote](latestVersion),
+            ]);
+
+            response[parsed.version][mod] = {
+              packageVersion: packageVersion,
+              latestVersion: latestVersion,
+            }       
+          } catch (e) {
+            
+          }
+        }
+
+        console.log(table(data, config));
+
+      } catch (e) {
+        
+      }
+    }
+
+    return response;
   }
 
   if (self.options.clean) {
     const NPM_INSTALL_FLAG = self.options['--no-optional'] || self.options['-no-optional'] || self.options['no-optional'] ? '--no-optional' : ''
     const NPM_CLEAN = `rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install ${NPM_INSTALL_FLAG} && npm rb`;
+    
     self.log(chalk.blue(`Running: ${NPM_CLEAN}...`));
+    
     return await asyncCommand(NPM_CLEAN)
     .then(r => {
       self.log(chalk.green(`Finished cleaning`));
@@ -232,4 +374,18 @@ function _isEqual(v1, v2) {
 function _getVersion(v) {
   v = v.split('@');
   return v[v.length - 1]
+}
+
+function getLatestVersion(package) {
+  return new Promise(function(resolve, reject) {
+    const npm = new Npm();
+    
+    npm.repo(package)
+    .package()
+      .then(function(pkg) {
+        resolve(pkg.version);
+      }, function(err) {
+        resolve('?');
+      });      
+  });
 }
