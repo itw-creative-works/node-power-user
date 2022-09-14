@@ -12,6 +12,7 @@ const path = require('path');
 const { spawn, exec } = require('child_process');
 const argv = require('yargs').argv;
 const JSON5 = require('json5');
+const powertools = require('node-powertools');
 const { isEqual } = require('lodash');
 const semverIsEqual = require('semver/functions/eq')
 const semverCoerce = require('semver/functions/coerce')
@@ -295,7 +296,12 @@ const self = this;
     return bump(self);
   }
 
-
+  if (self.options['wait'] || self.options['--wait']) {
+    const time = parseInt(self.options['wait'] || self.options['--wait'] || 1000);
+    self.log(chalk.blue(`Waiting ${time}...`));
+    await powertools.wait(time);
+    self.log(chalk.green(`Done waiting`));
+  }
 };
 
 Main.prototype.log = function () {

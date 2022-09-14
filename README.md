@@ -48,7 +48,8 @@ Note: you may have to run cli commands with `npx npu <command>` if you install t
     * `npu bump 2`: Bump the middle number (`minor` version).
     * `npu bump 3`: Bump the first number (`major` version).
   * `npu outdated`: Compare the versions of installed modules to those in your package.json
-  * `npu global`: List all global packages for all versions of Node.js on your machine (must use NVM)
+  * `npu global`: List all global packages for all versions of Node.js on your machine (must use NVM).
+  * `npu --wait`: Wait the specified amount of time in milliseconds.
 
 ## Final Words
 If you are still having difficulty, we would love for you to post a question to [the Node Power User issues page](https://github.com/itw-creative-works/node-power-user/issues). It is much easier to answer questions that include your code and relevant files! So if you can provide them, we'd be extremely grateful (and more likely to help you find the answer!)
