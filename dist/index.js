@@ -17,6 +17,7 @@ const { isEqual } = require('lodash');
 const semverIsEqual = require('semver/functions/eq')
 const semverCoerce = require('semver/functions/coerce')
 const table = require('table').table;
+const ProgressBar = require('cli-progress');
 const Npm = require('npm-api');
 const os = require('os');
 
@@ -26,11 +27,11 @@ function Main() {
 
 }
 
-Main.prototype.process = async function (args) {
-const self = this;
-  args = args || process.argv
-  self.options = {};
-  self.argv = argv;
+Main.prototype.process = async function (options) {
+  const self = this;
+  self.options = options || {};
+
+  // console.log('--process.env', process.env);
 
   try {
     self.npu_packageJSON = require('../package.json');
@@ -42,6 +43,8 @@ const self = this;
     self.proj_path = process.cwd();
     self.proj_packageJSONPath = path.resolve(self.proj_path, './package.json');
     self.proj_packageJSON = require(self.proj_packageJSONPath);
+    self.proj_packageJSON.allDependencies = _.merge({}, self.proj_packageJSON.peerDependencies, self.proj_packageJSON.devDependencies, self.proj_packageJSON.dependencies);
+    self.proj_packageJSON.allDependenciesKeys = Object.keys(self.proj_packageJSON.allDependencies);
   } catch (e) {
     self.proj_packageJSON = {
       name: 'Unknown Name',
@@ -49,36 +52,50 @@ const self = this;
       dependencies: {},
       devDependencies: {},
       peerDependencies: {},
+      allDependencies: {},     
     }
     console.error(chalk.red(`This project does not contain a valid package.json file!: \n${e}`));
   }
 
-  if (Array.isArray(args)) {
-    for (var i = 0; i < args.length; i++) {
-      self.options[args[i]] = true;
-    }    
-  } else {
-    Object.keys(args)
-    .forEach((arg, i) => {
-      self.options[arg] = args[arg];
-    });
+  // console.log('---args', args);
+  // if (Array.isArray(args)) {
+  //   for (var i = 0; i < args.length; i++) {
+  //     self.options[args[i]] = true;
+  //   }    
+  // } else {
+  //   Object.keys(args)
+  //   .forEach((arg, i) => {
+  //     self.options[arg] = args[arg];
+  //   });
+  // }
+  Object.keys(argv)
+  .forEach(arg => {
+    self.options[arg] = argv[arg]
+  });
+
+  if (self.options.d || self.options.debug || process.env.NPU_LOG === 'true') {
+    console.log('argv', argv);
+    console.log('options', self.options); 
   }
 
-  if (self.options.d || self.options.debug || self.options['-d'] || self.options['--debug']) {
-    console.log('options:', self.options); 
-  }
+  if (self.options.wait) {
+    const time = parseInt(typeof self.options.wait === 'number' ? self.options.wait : 1000);
+    self.log(chalk.blue(`Waiting ${time}...`));
+    await powertools.wait(time);
+    self.log(chalk.green(`Done waiting`));
+  }  
 
-  if (self.options.v || self.options.version || self.options['-v'] || self.options['--version']) {
+  if (self.options.v || self.options.version) {
     self.log(chalk.blue(`Node Power User is v${chalk.bold(self.npu_packageJSON.version)}`));
     return self.npu_packageJSON.version;
   }
 
-  if (self.options.pv || self.options['project-version'] || self.options.project) {
+  if (self.options.pv || self.options.project || self.options['project-version']) {
     self.log(chalk.blue(`The current project (${chalk.bold(self.proj_packageJSON.name)}) is v${chalk.bold(self.proj_packageJSON.version)}`));
     return self.proj_packageJSON.version;
   }
 
-  if (self.options.lp || self.options.listpackages || self.options['-lp'] || self.options['--listpackages']) {
+  if (self.options.lp || self.options.listpackages || self.options['list-packages']) {
     self.log(chalk.blue.bold(`Dependencies:`));
    
     Object.keys(self.proj_packageJSON.dependencies || {})
@@ -105,7 +122,7 @@ const self = this;
     };
   }
 
-  if (self.options.out || self.options.outdated || self.options.match || self.options['-o'] || self.options['--outdated'] || self.options['--match']) {
+  if (self.options.out || self.options.outdated || self.options.match) {
     // self.log(chalk.blue.bold(`Outdated:`));
     // self.log(chalk.green(`name: package = installed`));
 
@@ -115,23 +132,24 @@ const self = this;
 
     const config = {
       columnDefault: {
-        width: 10,
+        // width: 10,
       },
       header: {
         alignment: 'center',
         content: 'Outdated and mismatched packages',
       },
-    }       
+    }  
+    const progress = new ProgressBar.SingleBar({}, ProgressBar.Presets.shades_classic);
+    progress.start(self.proj_packageJSON.allDependenciesKeys.length, 0);
 
     const response = {};
 
-    const depKeys = Object.keys(self.proj_packageJSON.dependencies || {});
-
     let bumpCommand = '';
-    
-    for (var i = 0; i < depKeys.length; i++) {
-      const dep = depKeys[i];
-      const packageVersion = _coerce(self.proj_packageJSON.dependencies[dep]);
+
+    for (var i = 0; i < self.proj_packageJSON.allDependenciesKeys.length; i++) {
+      progress.update(i);
+      const dep = self.proj_packageJSON.allDependenciesKeys[i];
+      const packageVersion = _coerce(self.proj_packageJSON.allDependencies[dep]);
       const installedVersion = _coerce(
         _getVersion(
           (await asyncCommand(`npm list ${dep} --depth=0 | grep ${dep}`))
@@ -183,6 +201,8 @@ const self = this;
     // .forEach((dep, i) => {
     //   self.log(chalk.blue(`${dep} @ ${self.proj_packageJSON.devDependencies[dep]}`));
     // }); 
+    
+    progress.stop();
 
     console.log(table(data, config));
 
@@ -207,7 +227,7 @@ const self = this;
     return response;  
   }
 
-  if (self.options.global || self.options['-g'] || self.options['--global']) {
+  if (self.options.global || self.options.g) {
     const parentPath = `/Users/${os.userInfo().username}/.nvm/versions/node`;
     const versions = jetpack.list(parentPath);
     const currentNode = process.versions.node;
@@ -229,17 +249,21 @@ const self = this;
 
         const config = {
           columnDefault: {
-            width: 10,
+            // width: 10,
           },
           header: {
             alignment: 'center',
             content: `Global packages for v${parsed.version}`,
           },
-        }    
+        }
+        const progress = new ProgressBar.SingleBar({}, ProgressBar.Presets.shades_classic);
+        progress.start(modules.length, 0);        
 
         response[parsed.version] = {};
 
         for (var j = 0; j < modules.length; j++) {
+          progress.update(i, 0);        
+
           const mod = modules[j];
           const packagePath = path.resolve(lib, mod, 'package.json');
           try {
@@ -267,6 +291,8 @@ const self = this;
           }
         }
 
+        progress.stop();
+
         console.log(table(data, config));
 
       } catch (e) {
@@ -278,11 +304,11 @@ const self = this;
   }
 
   if (self.options.clean) {
-    const NPM_INSTALL_FLAG = self.options['--no-optional'] || self.options['-no-optional'] || self.options['no-optional'] ? '--no-optional' : ''
+    const NPM_INSTALL_FLAG = self.options['no-optional'] || self.options['nooptional'] ? '--no-optional' : ''
     const NPM_CLEAN = `rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install ${NPM_INSTALL_FLAG} && npm rb`;
     
     self.log(chalk.blue(`Running: ${NPM_CLEAN}...`));
-    
+
     return await asyncCommand(NPM_CLEAN)
     .then(r => {
       self.log(chalk.green(`Finished cleaning`));
@@ -296,18 +322,12 @@ const self = this;
     return bump(self);
   }
 
-  if (self.options['wait'] || self.options['--wait']) {
-    const time = parseInt(self.options['wait'] || self.options['--wait'] || 1000);
-    self.log(chalk.blue(`Waiting ${time}...`));
-    await powertools.wait(time);
-    self.log(chalk.green(`Done waiting`));
-  }
 };
 
 Main.prototype.log = function () {
   const self = this;
 
-  if (self.options.lo !== false) {
+  if (self.options.log !== false) {
     console.log(...arguments);
   }
 };

@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "0.0.29",
+  "version": "0.0.31",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/index.js",
   "bin": {
@@ -10,7 +10,8 @@
   },
   "scripts": {
     "test": "npm run prepare && ./node_modules/mocha/bin/mocha test/ --recursive --timeout=10000",
-    "start": "npm run prepare && node -e 'new (require(`./dist/index.js`))().process()'",
+    "start": "npm run prepare && ./bin/npu",
+    "help": "echo 'npm start -- -v'",
     "prepare": "node -e 'require(`prepare-package`)()'"
   },
   "repository": {
@@ -30,6 +31,7 @@
   "homepage": "https://itwcreativeworks.com",
   "dependencies": {
     "chalk": "^4.1.2",
+    "cli-progress": "^3.11.2",
     "fs-jetpack": "^4.3.1",
     "inquirer": "^8.2.4",
     "json5": "^2.2.1",

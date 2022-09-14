@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-let Main = new (require('../dist/index.js'))(process.argv);
+const argv = require('yargs').argv;
+const Main = new (require('../dist/index.js'))(argv);
 (async function() {
   'use strict';
-  await Main.process(process.argv);
+  await Main.process(argv);
 }());
