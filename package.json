@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "0.0.31",
+  "version": "0.0.32",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/index.js",
   "bin": {
@@ -50,5 +50,37 @@
   "devDependencies": {
     "mocha": "^8.4.0",
     "prepare-package": "^0.0.16"
-  }
+  },
+  "allDependencies": {
+    "mocha": "^8.4.0",
+    "prepare-package": "^0.0.16",
+    "chalk": "^4.1.2",
+    "cli-progress": "^3.11.2",
+    "fs-jetpack": "^4.3.1",
+    "inquirer": "^8.2.4",
+    "json5": "^2.2.1",
+    "keychain": "^1.3.0",
+    "lodash": "^4.17.21",
+    "node-powertools": "^0.0.21",
+    "npm-api": "^1.0.1",
+    "semver": "^7.3.7",
+    "table": "^6.8.0",
+    "yargs": "^16.2.0"
+  },
+  "allDependenciesKeys": [
+    "mocha",
+    "prepare-package",
+    "chalk",
+    "cli-progress",
+    "fs-jetpack",
+    "inquirer",
+    "json5",
+    "keychain",
+    "lodash",
+    "node-powertools",
+    "npm-api",
+    "semver",
+    "table",
+    "yargs"
+  ]
 }

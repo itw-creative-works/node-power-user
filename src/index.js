@@ -73,29 +73,29 @@ Main.prototype.process = async function (options) {
     self.options[arg] = argv[arg]
   });
 
-  if (self.options.d || self.options.debug || process.env.NPU_LOG === 'true') {
+  if (self.options.d || self.options.debug || self.options._.includes('debug') || process.env.NPU_LOG === 'true') {
     console.log('argv', argv);
     console.log('options', self.options); 
   }
 
-  if (self.options.wait) {
+  if (self.options.wait || self.options._.includes('wait')) {
     const time = parseInt(typeof self.options.wait === 'number' ? self.options.wait : 1000);
     self.log(chalk.blue(`Waiting ${time}...`));
     await powertools.wait(time);
     self.log(chalk.green(`Done waiting`));
   }  
 
-  if (self.options.v || self.options.version) {
+  if (self.options.v || self.options.version || self.options._.includes('version')) {
     self.log(chalk.blue(`Node Power User is v${chalk.bold(self.npu_packageJSON.version)}`));
     return self.npu_packageJSON.version;
   }
 
-  if (self.options.pv || self.options.project || self.options['project-version']) {
+  if (self.options.pv || self.options.project || self.options['project-version'] || self.options._.includes('project')) {
     self.log(chalk.blue(`The current project (${chalk.bold(self.proj_packageJSON.name)}) is v${chalk.bold(self.proj_packageJSON.version)}`));
     return self.proj_packageJSON.version;
   }
 
-  if (self.options.lp || self.options.listpackages || self.options['list-packages']) {
+  if (self.options.lp || self.options.listpackages || self.options['list-packages'] || self.options._.includes('listpackages')) {
     self.log(chalk.blue.bold(`Dependencies:`));
    
     Object.keys(self.proj_packageJSON.dependencies || {})
@@ -122,7 +122,7 @@ Main.prototype.process = async function (options) {
     };
   }
 
-  if (self.options.out || self.options.outdated || self.options.match) {
+  if (self.options.out || self.options.outdated || self.options.match || self.options._.includes('out') || self.options._.includes('outdated') || self.options._.includes('match')) {
     // self.log(chalk.blue.bold(`Outdated:`));
     // self.log(chalk.green(`name: package = installed`));
 
@@ -227,7 +227,7 @@ Main.prototype.process = async function (options) {
     return response;  
   }
 
-  if (self.options.global || self.options.g) {
+  if (self.options.global || self.options.g || self.options._.includes('global')) {
     const parentPath = `/Users/${os.userInfo().username}/.nvm/versions/node`;
     const versions = jetpack.list(parentPath);
     const currentNode = process.versions.node;
@@ -303,7 +303,7 @@ Main.prototype.process = async function (options) {
     return response;
   }
 
-  if (self.options.clean) {
+  if (self.options.clean || self.options._.includes('clean')) {
     const NPM_INSTALL_FLAG = self.options['no-optional'] || self.options['nooptional'] ? '--no-optional' : ''
     const NPM_CLEAN = `rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install ${NPM_INSTALL_FLAG} && npm rb`;
     
@@ -318,7 +318,7 @@ Main.prototype.process = async function (options) {
     })
   }
 
-  if (self.options.bump) {
+  if (self.options.bump || self.options._.includes('bump')) {
     return bump(self);
   }
 
