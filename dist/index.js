@@ -24,6 +24,14 @@ const os = require('os');
 // const npm = require('npm');
 
 function Main() {
+  const self = this;
+  
+  self.options = {};
+  self.npu_packageJSON = {};
+  self.proj_path = null;
+  self.proj_packageJSONPath = null;
+  self.proj_packageJSON = {};
+  self.proj_allDependencies = {};
 
 }
 
@@ -43,8 +51,9 @@ Main.prototype.process = async function (options) {
     self.proj_path = process.cwd();
     self.proj_packageJSONPath = path.resolve(self.proj_path, './package.json');
     self.proj_packageJSON = require(self.proj_packageJSONPath);
-    self.proj_packageJSON.allDependencies = _.merge({}, self.proj_packageJSON.peerDependencies, self.proj_packageJSON.devDependencies, self.proj_packageJSON.dependencies);
-    self.proj_packageJSON.allDependenciesKeys = Object.keys(self.proj_packageJSON.allDependencies);
+    self.proj_allDependencies.pairs = _.merge({}, self.proj_packageJSON.peerDependencies, self.proj_packageJSON.devDependencies, self.proj_packageJSON.dependencies);
+    self.proj_allDependencies.list = Object.keys(self.proj_allDependencies.pairs);
+
   } catch (e) {
     self.proj_packageJSON = {
       name: 'Unknown Name',
@@ -140,22 +149,26 @@ Main.prototype.process = async function (options) {
       },
     }  
     const progress = new ProgressBar.SingleBar({}, ProgressBar.Presets.shades_classic);
-    progress.start(self.proj_packageJSON.allDependenciesKeys.length, 0);
+    progress.start(self.proj_allDependencies.list.length, 0);
 
     const response = {};
 
     let bumpCommand = '';
 
-    for (var i = 0; i < self.proj_packageJSON.allDependenciesKeys.length; i++) {
+    for (var i = 0; i < self.proj_allDependencies.list.length; i++) {
       progress.update(i);
-      const dep = self.proj_packageJSON.allDependenciesKeys[i];
-      const packageVersion = _coerce(self.proj_packageJSON.allDependencies[dep]);
+      const dep = self.proj_allDependencies.list[i];
+      const depPair = self.proj_allDependencies.pairs[dep];
+      const packageVersion = _coerce(depPair);
       const installedVersion = _coerce(
-        _getVersion(
-          (await asyncCommand(`npm list ${dep} --depth=0 | grep ${dep}`))
-            .split(' ')[1]
+        _getListVersion(
+          (await asyncCommand(`npm list ${dep} --depth=0 | grep ${dep}`)).split(' ')
         )
       );
+
+      // console.log('---', dep, depPair, _.get(packageVersion, 'version'), _.get(installedVersion, 'version'));
+
+      // console.log('---dep', dep, packageVersion, installedVersion);
       const latestVersion = await getLatestVersion(dep);
       const isEqual = _isEqual(installedVersion, packageVersion);
       const isLatest = _isEqual(packageVersion, latestVersion);
@@ -397,7 +410,9 @@ function _isEqual(v1, v2) {
   }
 }
 
-function _getVersion(v) {
+function _getListVersion(v) {
+  v = v.filter(i => i !== '\n');
+  v = v[v.length - 1]
   v = v.split('@');
   return v[v.length - 1]
 }
