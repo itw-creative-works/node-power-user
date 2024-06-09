@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "0.0.35",
+  "version": "1.0.0",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/index.js",
   "bin": {
@@ -45,6 +45,6 @@
   },
   "devDependencies": {
     "mocha": "^8.4.0",
-    "prepare-package": "^0.0.16"
+    "prepare-package": "^1.1.0"
   }
 }
