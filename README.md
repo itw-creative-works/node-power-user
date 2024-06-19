@@ -1,5 +1,5 @@
 <p align="center">
-  <a href="https://cdn.itwcreativeworks.com/assets/itw-creative-works/images/logo/itw-creative-works-brandmark-black-x.svg">
+  <a href="https://itwcreativeworks.com">
     <img src="https://cdn.itwcreativeworks.com/assets/itw-creative-works/images/logo/itw-creative-works-brandmark-black-x.svg" width="100px">
   </a>
 </p>
@@ -24,21 +24,21 @@
   <strong>Node Power User</strong> is the CLI that NPM should have had!
 </p>
 
-## Install
+## 📦 Install Node Power User
 <!-- First, install the global command line utility with npm: -->
 First, install the package via npm:
 ```shell
 npm i -g node-power-user
 ```
 
-## Features
+## 🦄 Features
 * Clean and reinstall your node project
 * Easily bump your NPM project's version without opening an editor
 
-## Example Setup
+## 📘 Example Setup
 After installing via NPM, you can use the CLI with the `npu` command.
 
-## Example CLI Usage
+## 💻 Example CLI Usage
 Note: you may have to run cli commands with `npx npu <command>` if you install this package locally.
   * `npu v`: Check version of node-power-user.
   * `npu pv`: Check version of the current project.
@@ -53,10 +53,10 @@ Note: you may have to run cli commands with `npx npu <command>` if you install t
   * `--wait`: Wait the specified amount of time in milliseconds.
   * `--debug`: Log the commands and flags before they are executed
 
-## Final Words
+## 🗨️ Final Words
 If you are still having difficulty, we would love for you to post a question to [the Node Power User issues page](https://github.com/itw-creative-works/node-power-user/issues). It is much easier to answer questions that include your code and relevant files! So if you can provide them, we'd be extremely grateful (and more likely to help you find the answer!)
 
-## Projects Using this Library
+## 📚 Projects Using this Library
 [Somiibo](https://somiibo.com/): A Social Media Bot with an open-source module library. <br>
 [JekyllUp](https://jekyllup.com/): A website devoted to sharing the best Jekyll themes. <br>
 [Slapform](https://slapform.com/): A backend processor for your HTML forms on static sites. <br>
