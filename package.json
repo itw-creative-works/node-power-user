@@ -3,17 +3,17 @@
   "version": "1.0.2",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/index.js",
-  "bin": {
-    "npu": "bin/npu",
-    "node-power-user": "bin/npu",
-    "nodepoweruser": "bin/npu"
-  },
   "scripts": {
     "test": "npm run prepare && ./node_modules/mocha/bin/mocha test/ --recursive --timeout=10000",
     "start": "npm run prepare && ./bin/npu",
     "help": "echo 'npm start -- -v'",
     "prepare": "node -e \"require('prepare-package')()\"",
     "prepare:watch": "nodemon -w ./src -e '*' --exec 'npm run prepare'"
+  },
+  "bin": {
+    "npu": "bin/npu",
+    "node-power-user": "bin/npu",
+    "nodepoweruser": "bin/npu"
   },
   "repository": {
     "type": "git",
