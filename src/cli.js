@@ -43,6 +43,10 @@ function resolveCommand(options) {
 function Main() {}
 
 Main.prototype.process = async function (options) {
+  // Fix options
+  options = options || {};
+  options._ = options._ || [];
+
   // Determine the command (use default if not provided)
   const command = resolveCommand(options);
 

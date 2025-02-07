@@ -38,19 +38,72 @@ npm i -g node-power-user
 ## 📘 Example Setup
 After installing via NPM, you can use the CLI with the `npu` command.
 
-## 💻 Example CLI Usage
+<!-- ## 💻 Example CLI Usage
 Note: you may have to run cli commands with `npx npu <command>` if you install this package locally.
-  * `npu v`: Check version of node-power-user.
-  * `npu pv`: Check version of the current project.
+  * `npu -v`: Check version of node-power-user.
   * `npu clean`: Clean your node project (runs `rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install && npm rb`).
   * `npu bump`: Bump your project's version.
-    * `npu bump 1`: Bump the last number (`patch` version).
-    * `npu bump 2`: Bump the middle number (`minor` version).
-    * `npu bump 3`: Bump the first number (`major` version).
+    * `npu bump patch`: Bump the last number
+    * `npu bump minor`: Bump the middle number
+    * `npu bump major`: Bump the first number
   * `npu outdated`: Compare the versions of installed modules to those in your package.json
   * `npu global`: List all global packages for all versions of Node.js on your machine (must use NVM).
-### Flags
-  * `--wait`: Wait the specified amount of time in milliseconds.
+  * `npu sync`: Pull the latest changes from the remote repository and push your changes.
+  * `npu packages`: List all packages in your project. -->
+## 💻 Example CLI Usage
+
+### Bump Version
+Bump your project's version by the specified level.
+```shell
+npu bump <level>
+```
+* `npu bump patch`: Bump the last number
+* `npu bump minor`: Bump the middle number
+* `npu bump major`: Bump the first number
+
+### Clean Project
+Clean your node project (runs `rm -fr node_modules && rm -fr package-lock.json && npm cache clean --force && npm install && npm rb`).
+```shell
+npu clean
+```
+
+### Global Packages
+List all global packages for all versions of Node.js on your machine (you **must have NVM** installed).
+```shell
+npu global
+```
+
+### Outdated Packages
+Compare the versions of installed modules to those in your package.json
+```shell
+npu outdated
+```
+
+### List Packages
+List all packages in your project.
+```shell
+npu packages
+```
+
+### Sync Changes
+Pull the latest changes from the remote repository and push your changes. You can optionally supply a `--message="Your commit message here"` flag.
+```shell
+npu sync
+```
+
+### Check Version
+Check the version of node-power-user.
+```shell
+npu -v
+```
+
+### Wait
+Wait for a specified number of ms.
+```shell
+npu wait <ms>
+```
+
+### Global flags
   * `--debug`: Log the commands and flags before they are executed
 
 ## 🗨️ Final Words
