@@ -94,7 +94,7 @@ module.exports = async function (options) {
   console.log(table(data));
 
   // Log completion
-  logger.log(logger.format.green('✔ Outdated package check completed successfully!'));
+  logger.log(logger.format.green('Outdated package check completed successfully!'));
 
   return response;
 };
