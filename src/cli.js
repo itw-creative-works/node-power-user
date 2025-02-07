@@ -15,13 +15,28 @@ const ALIASES = {
 };
 
 // Function to resolve command name from aliases
-function resolveCommand(command) {
+function resolveCommand(options) {
+  // Check if a command was explicitly passed via positional argument
+  if (options._.length > 0) {
+    const command = options._[0];
+    for (const [key, aliases] of Object.entries(ALIASES)) {
+      if (command === key || aliases.includes(command)) {
+        return key;
+      }
+    }
+    return command; // If not found in aliases, return as-is
+  }
+
+  // Check if any alias was passed as a flag (e.g., -g)
   for (const [key, aliases] of Object.entries(ALIASES)) {
-    if (command === key || aliases.includes(command)) {
-      return key;
+    for (const alias of aliases) {
+      if (options[alias.replace(/^-+/, '')]) { // Remove leading `-`
+        return key;
+      }
     }
   }
-  return command; // Default to original command if no alias is found
+
+  return DEFAULT; // Fallback to default if no match is found
 }
 
 // Main Function
@@ -29,8 +44,7 @@ function Main() {}
 
 Main.prototype.process = async function (options) {
   // Determine the command (use default if not provided)
-  const inputCommand = options._[0] || DEFAULT;
-  const command = resolveCommand(inputCommand);
+  const command = resolveCommand(options);
 
   try {
     // Get the command file path
