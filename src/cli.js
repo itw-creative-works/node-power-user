@@ -11,7 +11,7 @@ const ALIASES = {
   outdated: ['-o', 'out', '--outdated'],
   packages: ['-p', 'pack', '--packages'],
   version: ['-v', '--version'],
-  sync: ['-s', '--sync'],
+  sync: ['-s', '--sync', 'push', '--push'],
 };
 
 // Function to resolve command name from aliases
