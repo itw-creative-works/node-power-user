@@ -11,6 +11,13 @@ const project = jetpack.read(path.join(process.cwd(), 'package.json'), 'json');
 
 // Module
 module.exports = async function (options) {
+  // Find the repository root by locating the .git folder
+  const repoRoot = findGitRoot(process.cwd());
+  if (!repoRoot) {
+    logger.error('Could not find the .git folder. Are you inside a Git repository?');
+    return false;
+  }
+
   // Collect answers using the new @inquirer/prompts methods
   const message = await ask({
     message: 'Enter a commit message',
@@ -26,8 +33,11 @@ module.exports = async function (options) {
   logger.log(`Syncing repo...`);
 
   try {
-    // Run cleanup commands
-    await execute(command, { log: true });
+    // Run cleanup commands with the repository root as the working directory
+    await execute(command, {
+      log: true,
+      config: {cwd: repoRoot},
+    });
 
     // Log success
     logger.log(logger.format.green('Sync completed successfully!'));
@@ -61,4 +71,17 @@ function ask(options) {
     message: options.message,
     default: options.default,
   });
+}
+
+function findGitRoot(startPath) {
+  let currentPath = startPath;
+
+  while (currentPath !== path.parse(currentPath).root) {
+    if (jetpack.exists(path.join(currentPath, '.git')) === 'dir') {
+      return currentPath;
+    }
+    currentPath = path.dirname(currentPath);
+  }
+
+  return null;
 }
