@@ -18,23 +18,50 @@ module.exports = async function (options) {
     return false;
   }
 
-  // Collect answers using the new @inquirer/prompts methods
-  const message = await ask({
-    message: 'Enter a commit message',
-    default: 'Update',
-    value: options.message,
-    multiline: false,
-  });
-
-  // Define cleanup command
-  const command = `git pull && git add . && git commit -m "${message}" && git push origin`;
-
   // Log initial state
   logger.log(`Syncing repo...`);
 
   try {
-    // Run cleanup commands with the repository root as the working directory
-    await execute(command, {
+    // First, pull changes from remote
+    logger.log('Pulling changes from remote...');
+    const pullResult = await execute('git pull', {
+      log: false,
+      config: {cwd: repoRoot},
+    });
+
+    // Check if there were any changes pulled
+    const pullOutput = pullResult.stdout || '';
+    if (pullOutput.includes('Already up to date') || pullOutput.includes('Already up-to-date')) {
+      logger.log('Already up to date - no changes pulled');
+    } else {
+      // Try to extract the number of files changed
+      const filesChangedMatch = pullOutput.match(/(\d+) file[s]? changed/);
+      const insertionsMatch = pullOutput.match(/(\d+) insertion[s]?/);
+      const deletionsMatch = pullOutput.match(/(\d+) deletion[s]?/);
+
+      if (filesChangedMatch) {
+        const filesChanged = filesChangedMatch[1];
+        const insertions = insertionsMatch ? insertionsMatch[1] : '0';
+        const deletions = deletionsMatch ? deletionsMatch[1] : '0';
+        logger.log(logger.format.green(`Pulled changes: ${filesChanged} file(s) changed, ${insertions} insertion(s), ${deletions} deletion(s)`));
+      } else {
+        logger.log(logger.format.green('Changes pulled successfully'));
+      }
+    }
+
+    // Collect answers using the new @inquirer/prompts methods
+    const message = await ask({
+      message: 'Enter a commit message',
+      default: 'Update',
+      value: options.message,
+      multiline: false,
+    });
+
+    // Then, add, commit, and push changes
+    logger.log('Committing and pushing changes...');
+    const pushCommand = `git add . && git commit -m "${message}" && git push origin`;
+
+    await execute(pushCommand, {
       log: true,
       config: {cwd: repoRoot},
     });
