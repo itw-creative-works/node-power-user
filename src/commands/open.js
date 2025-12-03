@@ -20,7 +20,7 @@ module.exports = async function (options) {
       config: { cwd: repoRoot },
     });
 
-    let remoteUrl = (result.stdout || '').trim();
+    let remoteUrl = (result || '').toString().trim();
 
     if (!remoteUrl) {
       logger.error('No remote origin found for this repository.');
