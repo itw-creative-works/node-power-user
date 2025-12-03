@@ -91,6 +91,12 @@ Pull the latest changes from the remote repository and push your changes. You ca
 npu sync
 ```
 
+### Open Repository
+Open the current repository's remote URL in your default browser.
+```shell
+npu open
+```
+
 ### Check Version
 Check the version of node-power-user.
 ```shell
