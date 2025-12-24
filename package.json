@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "1.0.15",
+  "version": "1.0.17",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/index.js",
   "scripts": {

@@ -30,7 +30,7 @@ module.exports = async function (options) {
     });
 
     // Check if there were any changes pulled
-    const pullOutput = pullResult.stdout || '';
+    const pullOutput = pullResult || '';
     if (pullOutput.includes('Already up to date') || pullOutput.includes('Already up-to-date')) {
       logger.log('Already up to date - no changes pulled');
     } else {
@@ -69,7 +69,7 @@ module.exports = async function (options) {
       config: {cwd: repoRoot},
     });
 
-    const hasChanges = (statusResult.stdout || '').trim().length > 0;
+    const hasChanges = (statusResult || '').trim().length > 0;
 
     if (!hasChanges) {
       logger.log(logger.format.green('Already up to date - nothing to commit'));
