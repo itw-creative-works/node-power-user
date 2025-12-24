@@ -32,7 +32,7 @@ module.exports = async function (options) {
     // Check if there were any changes pulled
     const pullOutput = pullResult || '';
     if (pullOutput.includes('Already up to date') || pullOutput.includes('Already up-to-date')) {
-      logger.log('Already up to date - no changes pulled');
+      logger.log(logger.format.green('Already up to date - no changes pulled'));
     } else {
       // Try to extract the number of files changed
       const filesChangedMatch = pullOutput.match(/(\d+) file[s]? changed/);
