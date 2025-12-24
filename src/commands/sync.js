@@ -57,9 +57,28 @@ module.exports = async function (options) {
       multiline: false,
     });
 
-    // Then, add, commit, and push changes
+    // Stage all changes first
+    await execute('git add .', {
+      log: false,
+      config: {cwd: repoRoot},
+    });
+
+    // Check if there are staged changes to commit
+    const statusResult = await execute('git status --porcelain', {
+      log: false,
+      config: {cwd: repoRoot},
+    });
+
+    const hasChanges = (statusResult.stdout || '').trim().length > 0;
+
+    if (!hasChanges) {
+      logger.log(logger.format.green('Already up to date - nothing to commit'));
+      return true;
+    }
+
+    // Commit and push changes
     logger.log('Committing and pushing changes...');
-    const pushCommand = `git add . && git commit -m "${message}" && git push origin`;
+    const pushCommand = `git commit -m "${message}" && git push origin`;
 
     await execute(pushCommand, {
       log: true,
