@@ -9,7 +9,7 @@ const ALIASES = {
   clean: ['-c', '--clean'],
   global: ['-g', '--global'],
   open: ['--open', 'repo', '--repo'],
-  outdated: ['-o', 'out', '--outdated'],
+  outdated: ['-o', 'out', '--outdated', '-u', '--update', 'up', 'update'],
   packages: ['-p', 'pack', '--packages'],
   version: ['-v', '--version'],
   sync: ['-s', '--sync', 'push', '--push'],

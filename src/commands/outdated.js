@@ -2,21 +2,38 @@
 const logger = new (require('../lib/logger'))('node-power-user');
 const chalk = require('chalk');
 const { table } = require('table');
-const ProgressBar = require('cli-progress');
-const Npm = require('npm-api');
-const version = require('wonderful-version');
 const jetpack = require('fs-jetpack');
 const path = require('path');
-
-const npm = new Npm();
+const version = require('wonderful-version');
+const inquirer = require('@inquirer/prompts');
+const ncu = require('npm-check-updates');
+const { execute } = require('node-powertools');
 
 // Load package.json
 const projectPath = process.cwd();
-const projectJson = jetpack.read(path.join(projectPath, 'package.json'), 'json') || {};
 
 // Module
 module.exports = async function (options) {
-  // Combine all dependencies
+  const packageJsonPath = path.join(projectPath, 'package.json');
+  let projectJson = jetpack.read(packageJsonPath, 'json');
+
+  // Check if package.json exists
+  if (!projectJson) {
+    logger.error('No package.json found in the current directory.');
+    return {};
+  }
+
+  // Log start
+  logger.log(`Checking packages for ${logger.format.bold(projectJson.name || 'Unknown Project')}...`);
+
+  // Run ncu for patch, minor, and latest
+  const [patchUpgrades, minorUpgrades, latestUpgrades] = await Promise.all([
+    ncu.run({ packageFile: packageJsonPath, target: 'patch' }),
+    ncu.run({ packageFile: packageJsonPath, target: 'minor' }),
+    ncu.run({ packageFile: packageJsonPath, target: 'latest' }),
+  ]);
+
+  // Get all dependencies
   const allDependencies = Object.assign(
     {},
     projectJson.dependencies,
@@ -24,77 +41,187 @@ module.exports = async function (options) {
     projectJson.peerDependencies
   );
 
-  // Check if there are any dependencies
-  if (Object.keys(allDependencies).length === 0) {
-    logger.warn('No dependencies found in package.json.');
-    return {};
-  }
+  // Build unified package data
+  const allPackages = new Map();
 
-  // Log start
-  logger.log(`Checking outdated dependencies for ${logger.format.bold(projectJson.name || 'Unknown Project')}...`);
-
-  // Initialize data table
-  const data = [['Name', 'Package', 'Installed', 'Latest']];
-  const progress = new ProgressBar.SingleBar({}, ProgressBar.Presets.shades_classic);
-  progress.start(Object.keys(allDependencies).length, 0);
-
-  const response = {};
-
-  // Loop through dependencies
   for (const dep of Object.keys(allDependencies)) {
-    try {
-      progress.increment();
+    const packageVersion = version.clean(allDependencies[dep]);
+    const installedPackagePath = path.join(projectPath, 'node_modules', dep, 'package.json');
 
-      // Get version info
-      const packageVersion = version.clean(allDependencies[dep]); // Version from package.json
-      const installedPackagePath = path.join(projectPath, 'node_modules', dep, 'package.json');
+    let installedVersion = null;
+    if (jetpack.exists(installedPackagePath)) {
+      const installedJson = jetpack.read(installedPackagePath, 'json');
+      installedVersion = installedJson?.version ? version.clean(installedJson.version) : null;
+    }
 
-      let installedVersion = '?';
-      if (jetpack.exists(installedPackagePath)) {
-        const installedJson = jetpack.read(installedPackagePath, 'json');
-        installedVersion = installedJson?.version ? version.clean(installedJson.version) : '?';
-      }
+    const patchVersion = patchUpgrades[dep] ? version.clean(patchUpgrades[dep]) : null;
+    const minorVersion = minorUpgrades[dep] ? version.clean(minorUpgrades[dep]) : null;
+    const latestVersion = latestUpgrades[dep] ? version.clean(latestUpgrades[dep]) : null;
 
-      // Get latest published version
-      const latestVersion = await npm.repo(dep).package().then(pkg => version.clean(pkg.version)).catch(() => '?');
+    // Check if this package needs attention
+    const hasDiscrepancy = installedVersion && !version.is(installedVersion, '==', packageVersion);
+    const hasUpdate = latestVersion && latestVersion !== packageVersion;
 
-      // Check version statuses
-      const isInstalledCurrent = version.is(installedVersion, '==', packageVersion);
-      const isUpToDate = version.is(packageVersion, '>=', latestVersion);
-
-      // Format version colors
-      const installedColor = isInstalledCurrent ? 'green' : 'yellow';
-      const latestColor = isUpToDate ? 'green' : 'red';
-
-      // Store response data
-      response[dep] = {
-        package: packageVersion,
-        installed: installedVersion,
-        latest: latestVersion,
-        isInstalledCurrent,
-        isUpToDate
-      };
-
-      // Add row to table
-      data.push([
-        dep,
+    if (hasDiscrepancy || hasUpdate) {
+      allPackages.set(dep, {
+        name: dep,
         packageVersion,
-        chalk[installedColor](installedVersion),
-        chalk[latestColor](latestVersion)
-      ]);
-    } catch (e) {
-      logger.error(`Error checking ${dep}: ${e.message}`);
+        installedVersion: installedVersion || '?',
+        patchVersion,
+        minorVersion,
+        latestVersion,
+        type: getDependencyType(projectJson, dep),
+        hasDiscrepancy,
+        hasMajorUpdate: latestVersion && minorVersion !== latestVersion,
+      });
     }
   }
 
-  // Stop progress bar
-  progress.stop();
+  // Display unified table
+  if (allPackages.size === 0) {
+    logger.log(logger.format.green('\nAll packages are up to date!'));
+    return { allPackages };
+  }
 
-  // Display table
-  console.log(table(data));
+  const dataTable = [['Package', 'package.json', 'Installed', 'Latest', 'Type']];
 
-  // Log completion
-  logger.log(logger.format.green('Outdated package check completed successfully!'));
+  for (const pkg of allPackages.values()) {
+    const pkgVersionColor = pkg.hasDiscrepancy ? 'red' : 'green';
 
-  return response;
+    // Format latest version - show major updates in magenta
+    let latestDisplay;
+    if (pkg.latestVersion) {
+      if (pkg.hasMajorUpdate) {
+        latestDisplay = chalk.magenta(pkg.latestVersion + ' ⚠');
+      } else if (pkg.latestVersion !== pkg.installedVersion) {
+        latestDisplay = chalk.cyan(pkg.latestVersion);
+      } else {
+        latestDisplay = chalk.green(pkg.latestVersion);
+      }
+    } else {
+      latestDisplay = chalk.dim('-');
+    }
+
+    dataTable.push([
+      pkg.name,
+      chalk[pkgVersionColor](pkg.packageVersion),
+      chalk.green(pkg.installedVersion),
+      latestDisplay,
+      pkg.type,
+    ]);
+  }
+
+  console.log(table(dataTable));
+  logger.log(chalk.dim('Legend: ') + chalk.magenta('⚠ = major version (breaking changes)'));
+
+  // Get counts for menu
+  const discrepancies = [...allPackages.values()].filter(pkg => pkg.hasDiscrepancy);
+  const patchCount = Object.keys(patchUpgrades).length;
+  const minorCount = Object.keys(minorUpgrades).length;
+  const majorCount = Object.keys(latestUpgrades).length;
+
+  // Check for shortcut flags (skip menu)
+  let action = null;
+  if (options.r || options.reconcile) {
+    action = 'reconcile';
+  } else if (options.P || options.patch) {
+    action = 'patch';
+  } else if (options.m || options.minor) {
+    action = 'minor';
+  } else if (options.M || options.major) {
+    action = 'latest';
+  }
+
+  // If no shortcut, show menu
+  if (!action) {
+    const choices = [];
+
+    if (discrepancies.length > 0) {
+      choices.push({
+        name: `Reconcile (${discrepancies.length}) - sync package.json to installed versions`,
+        value: 'reconcile',
+      });
+    }
+
+    if (patchCount > 0) {
+      choices.push({
+        name: `Patch (${patchCount}) - safe bug fixes only`,
+        value: 'patch',
+      });
+    }
+
+    if (minorCount > 0) {
+      choices.push({
+        name: `Minor (${minorCount}) - new features, no breaking changes`,
+        value: 'minor',
+      });
+    }
+
+    if (majorCount > 0) {
+      choices.push({
+        name: `Major (${majorCount}) - all updates including breaking changes ⚠`,
+        value: 'latest',
+      });
+    }
+
+    choices.push({ name: 'Exit', value: 'exit' });
+
+    action = await inquirer.select({
+      message: 'What would you like to do?',
+      choices,
+    });
+  }
+
+  if (action === 'exit') {
+    return { allPackages };
+  }
+
+  // Handle reconcile
+  if (action === 'reconcile') {
+    // Re-read in case it changed
+    projectJson = jetpack.read(packageJsonPath, 'json');
+
+    for (const pkg of discrepancies) {
+      const depType = pkg.type === 'dev' ? 'devDependencies'
+        : pkg.type === 'peer' ? 'peerDependencies'
+        : 'dependencies';
+
+      projectJson[depType][pkg.name] = `^${pkg.installedVersion}`;
+    }
+
+    jetpack.write(packageJsonPath, projectJson);
+    logger.log(logger.format.green(`\nReconciled ${discrepancies.length} package(s) in package.json.`));
+
+    return { allPackages, reconciled: true };
+  }
+
+  // Handle patch/minor/major updates
+  const upgrades = action === 'patch' ? patchUpgrades
+    : action === 'minor' ? minorUpgrades
+    : latestUpgrades;
+
+  await ncu.run({
+    packageFile: packageJsonPath,
+    target: action,
+    upgrade: true,
+  });
+
+  logger.log(logger.format.green(`\nUpdated ${Object.keys(upgrades).length} package(s) in package.json.`));
+
+  // Run npm install
+  logger.log(logger.format.cyan('\nRunning npm install...'));
+  await execute('npm install', { log: true });
+
+  return { allPackages, updated: true, target: action };
 };
+
+// Helper to determine dependency type
+function getDependencyType(packageJson, dep) {
+  if (packageJson.devDependencies?.[dep]) {
+    return 'dev';
+  }
+  if (packageJson.peerDependencies?.[dep]) {
+    return 'peer';
+  }
+  return 'prod';
+}

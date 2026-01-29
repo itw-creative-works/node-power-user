@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "1.0.19",
+  "version": "1.0.20",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/index.js",
   "scripts": {
@@ -36,19 +36,20 @@
     "replace": {}
   },
   "dependencies": {
-    "@inquirer/prompts": "^7.9.0",
+    "@inquirer/prompts": "^7.10.1",
     "chalk": "^4.1.2",
     "cli-progress": "^3.12.0",
     "fs-jetpack": "^5.1.0",
     "itwcw-package-analytics": "^1.0.6",
-    "node-powertools": "^2.3.1",
+    "node-powertools": "^2.3.2",
     "npm-api": "^1.0.1",
+    "npm-check-updates": "^19.3.2",
     "table": "^6.9.0",
     "wonderful-version": "^1.3.2",
     "yargs": "^16.2.0"
   },
   "devDependencies": {
     "mocha": "^8.4.0",
-    "prepare-package": "^1.2.5"
+    "prepare-package": "^1.2.6"
   }
 }
