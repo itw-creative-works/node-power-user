@@ -26,11 +26,16 @@ module.exports = async function (options) {
   // Log start
   logger.log(`Checking packages for ${logger.format.bold(projectJson.name || 'Unknown Project')}...`);
 
-  // Run ncu for patch, minor, and latest
+  // Run ncu for patch, minor, and latest (include peer dependencies)
+  const ncuOptions = {
+    packageFile: packageJsonPath,
+    dep: 'prod,dev,peer,optional',
+  };
+
   const [patchUpgrades, minorUpgrades, latestUpgrades] = await Promise.all([
-    ncu.run({ packageFile: packageJsonPath, target: 'patch' }),
-    ncu.run({ packageFile: packageJsonPath, target: 'minor' }),
-    ncu.run({ packageFile: packageJsonPath, target: 'latest' }),
+    ncu.run({ ...ncuOptions, target: 'patch' }),
+    ncu.run({ ...ncuOptions, target: 'minor' }),
+    ncu.run({ ...ncuOptions, target: 'latest' }),
   ]);
 
   // Get all dependencies
