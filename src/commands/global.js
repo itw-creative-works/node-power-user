@@ -7,7 +7,7 @@ const version = require('wonderful-version');
 const { table } = require('table');
 const ProgressBar = require('cli-progress');
 const Npm = require('npm-api');
-const chalk = require('chalk');
+const chalk = require('chalk').default;
 
 const npm = new Npm();
 

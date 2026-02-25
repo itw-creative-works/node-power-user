@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-const argv = require('yargs').argv;
-const cli = new (require('../dist/cli.js'))(argv);
+const { hideBin } = require('yargs/helpers');
+const argv = require('yargs')(hideBin(process.argv)).parseSync();
+const cli = new (require('../dist/cli.js'))();
 (async function() {
   'use strict';
   await cli.process(argv);

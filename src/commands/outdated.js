@@ -1,6 +1,6 @@
 // Libraries
 const logger = new (require('../lib/logger'))('node-power-user');
-const chalk = require('chalk');
+const chalk = require('chalk').default;
 const { table } = require('table');
 const jetpack = require('fs-jetpack');
 const path = require('path');
@@ -117,13 +117,20 @@ module.exports = async function (options) {
   }
 
   console.log(table(dataTable));
-  logger.log(chalk.dim('Legend: ') + chalk.magenta('⚠ = major version (breaking changes)'));
 
-  // Get counts for menu
+  // Only show legend if there are major updates
+  const hasMajorUpdates = [...allPackages.values()].some(pkg => pkg.hasMajorUpdate);
+  if (hasMajorUpdates) {
+    logger.log(chalk.dim('Legend: ') + chalk.magenta('⚠ = major version (breaking changes)'));
+  }
+
+  // Get counts for menu (only show a tier if it has updates beyond the tier below)
   const discrepancies = [...allPackages.values()].filter(pkg => pkg.hasDiscrepancy);
   const patchCount = Object.keys(patchUpgrades).length;
   const minorCount = Object.keys(minorUpgrades).length;
   const majorCount = Object.keys(latestUpgrades).length;
+  const hasMinorBeyondPatch = minorCount > patchCount;
+  const hasMajorBeyondMinor = majorCount > minorCount;
 
   // Check for shortcut flags (skip menu)
   let action = null;
@@ -155,14 +162,14 @@ module.exports = async function (options) {
       });
     }
 
-    if (minorCount > 0) {
+    if (hasMinorBeyondPatch) {
       choices.push({
         name: `Minor (${minorCount}) - new features, no breaking changes`,
         value: 'minor',
       });
     }
 
-    if (majorCount > 0) {
+    if (hasMajorBeyondMinor) {
       choices.push({
         name: `Major (${majorCount}) - all updates including breaking changes ⚠`,
         value: 'latest',

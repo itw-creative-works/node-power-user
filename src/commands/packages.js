@@ -2,7 +2,7 @@
 const logger = new (require('../lib/logger'))('node-power-user');
 const path = require('path');
 const jetpack = require('fs-jetpack');
-const chalk = require('chalk');
+const chalk = require('chalk').default;
 const { table } = require('table');
 
 // Load package.json
