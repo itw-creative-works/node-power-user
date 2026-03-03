@@ -10,4 +10,6 @@ const project = jetpack.read(path.join(process.cwd(), 'package.json'), 'json');
 module.exports = async function (options) {
   // Log version
   console.log(package.version);
+
+  return package.version;
 };

@@ -124,13 +124,26 @@ module.exports = async function (options) {
     logger.log(chalk.dim('Legend: ') + chalk.magenta('⚠ = major version (breaking changes)'));
   }
 
-  // Get counts for menu (only show a tier if it has updates beyond the tier below)
+  // Get counts for menu (only show a tier if it offers upgrades beyond the tier below)
   const discrepancies = [...allPackages.values()].filter(pkg => pkg.hasDiscrepancy);
   const patchCount = Object.keys(patchUpgrades).length;
   const minorCount = Object.keys(minorUpgrades).length;
   const majorCount = Object.keys(latestUpgrades).length;
-  const hasMinorBeyondPatch = minorCount > patchCount;
-  const hasMajorBeyondMinor = majorCount > minorCount;
+
+  // Check if minor offers any versions beyond what patch gives
+  const hasMinorBeyondPatch = Object.keys(minorUpgrades).some(dep =>
+    minorUpgrades[dep] !== (patchUpgrades[dep] || allDependencies[dep])
+  );
+
+  // Check if major/latest offers any versions beyond what minor gives
+  const hasMajorBeyondMinor = Object.keys(latestUpgrades).some(dep =>
+    latestUpgrades[dep] !== (minorUpgrades[dep] || allDependencies[dep])
+  );
+
+  // If noPrompt, return data without showing menu (used by tests)
+  if (options.noPrompt) {
+    return { allPackages };
+  }
 
   // Check for shortcut flags (skip menu)
   let action = null;

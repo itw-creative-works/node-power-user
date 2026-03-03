@@ -62,7 +62,7 @@ Main.prototype.process = async function (options) {
 
     // Execute the command
     const Command = require(commandFile);
-    await Command(options);
+    return await Command(options);
   } catch (e) {
     console.error(`Error executing command "${command}": ${e.message}`);
 

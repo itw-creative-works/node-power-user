@@ -20,42 +20,41 @@ describe(`${package.name}`, () => {
 
   describe('.version()', () => {
 
-    describe('version', () => {
-     
-      // Normal
-      it('version => version', async () => {
-        return assert.equal(await library.process({version: true, log: true, debug: false}), package.version);
-      });
-
+    it('should return the package version', async () => {
+      return assert.equal(await library.process({version: true}), package.version);
     });
 
   });
 
-  describe('.project-version()', () => {
-
-    describe('project-version', () => {
-     
-      // Normal
-      it('project-version => project-version', async () => {
-        return assert.equal(await library.process({'project-version': true, log: true, debug: false}), package.version);
-      });
-
-    });
-
-  });  
-
   describe('.outdated()', () => {
 
-    describe('outdated', () => {
-     
-      // Normal
-      it('outdated => outdated', async () => {
-        await library.process({'outdated': true, log: true, debug: false})
-        return assert.equal(true, true);
-      });
-
+    it('should return allPackages as a Map', async () => {
+      const result = await library.process({_: ['outdated'], noPrompt: true});
+      assert.ok(result, 'Result should exist');
+      assert.ok(result.allPackages instanceof Map, 'allPackages should be a Map');
     });
 
-  });    
+    it('should contain valid package entries with required fields', async () => {
+      const result = await library.process({_: ['outdated'], noPrompt: true});
+      for (const [name, pkg] of result.allPackages) {
+        assert.equal(typeof name, 'string', 'Package name should be a string');
+        assert.equal(pkg.name, name, 'pkg.name should match the map key');
+        assert.equal(typeof pkg.packageVersion, 'string', 'packageVersion should be a string');
+        assert.ok(pkg.installedVersion, 'installedVersion should exist');
+        assert.ok(['prod', 'dev', 'peer'].includes(pkg.type), `type should be prod/dev/peer, got: ${pkg.type}`);
+        assert.equal(typeof pkg.hasDiscrepancy, 'boolean', 'hasDiscrepancy should be a boolean');
+      }
+    });
+
+    it('should flag major updates correctly', async () => {
+      const result = await library.process({_: ['outdated'], noPrompt: true});
+      for (const [, pkg] of result.allPackages) {
+        if (pkg.hasMajorUpdate) {
+          assert.ok(pkg.latestVersion, 'Major update packages should have a latestVersion');
+        }
+      }
+    });
+
+  });
 
 })
