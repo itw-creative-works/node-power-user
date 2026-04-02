@@ -15,6 +15,34 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [2.1.0] - 2026-04-02
+### Added
+- Socket CLI supply chain protection for `npu install` and `npu outdated` commands
+- New `npu install` (`npu i`) command with Socket wrapping and post-install audit
+- `--ignore` flag for outdated command to exclude packages (e.g. `--ignore mocha`)
+- `--force` flag to bypass Socket protection with `SOCKET_CLI_ACCEPT_RISKS=1`
+- Trace flagged transitive dependencies back to their parent packages
+- Suggested retry commands when Socket blocks an install
+- Development section in README
+
+### Changed
+- Outdated command backs up and restores package.json when installs fail
+- Installs target specific package versions instead of generic `npm install`
+- Graceful Ctrl+C handling instead of dumping stack traces
+
+### Removed
+- `.npmignore` in favor of `package.json` `files` field
+
+### Security
+- All installs wrapped with Socket CLI to detect malicious packages before installation
+
+---
+## [2.0.1] - 2026-03-15
+### Fixed
+- Fixed outdated command shortcut flags and options parsing
+- Updated tests
+
+---
 ## [2.0.0] - 2026-02-24
 ### BREAKING
 - Upgraded yargs v16 to v18: updated CLI entry point to use `parseSync()` API
