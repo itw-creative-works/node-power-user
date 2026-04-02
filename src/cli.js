@@ -8,6 +8,7 @@ const ALIASES = {
   bump: ['-b', '--bump'],
   clean: ['-c', '--clean'],
   global: ['-g', '--global'],
+  install: ['-i', '--install', 'i'],
   open: ['--open', 'repo', '--repo'],
   outdated: ['-o', 'out', '--outdated', '-u', '--update', 'up', 'update'],
   packages: ['-p', 'pack', '--packages'],
@@ -64,6 +65,12 @@ Main.prototype.process = async function (options) {
     const Command = require(commandFile);
     return await Command(options);
   } catch (e) {
+    // Exit cleanly on Ctrl+C
+    if (e.name === 'ExitPromptError' || e.message?.includes('SIGINT')) {
+      console.log('\nExited.');
+      process.exit(0);
+    }
+
     console.error(`Error executing command "${command}": ${e.message}`);
 
     // Exit with error

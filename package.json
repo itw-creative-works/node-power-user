@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/index.js",
   "scripts": {
@@ -14,6 +14,15 @@
     "npu": "bin/node-power-user",
     "node-power-user": "bin/node-power-user",
     "nodepoweruser": "bin/node-power-user"
+  },
+  "files": [
+    "dist"
+  ],
+  "preparePackage": {
+    "input": "./src",
+    "output": "./dist",
+    "replace": {},
+    "type": "copy"
   },
   "repository": {
     "type": "git",
@@ -30,26 +39,21 @@
     "url": "https://github.com/itw-creative-works/node-power-user/issues"
   },
   "homepage": "https://itwcreativeworks.com",
-  "preparePackage": {
-    "input": "./src",
-    "output": "./dist",
-    "replace": {}
-  },
   "dependencies": {
-    "@inquirer/prompts": "^8.3.0",
+    "@inquirer/prompts": "^8.3.2",
     "chalk": "^5.6.2",
     "cli-progress": "^3.12.0",
     "fs-jetpack": "^5.1.0",
     "itwcw-package-analytics": "^1.0.8",
-    "node-powertools": "^2.3.2",
+    "node-powertools": "^3.0.0",
     "npm-api": "^1.0.1",
-    "npm-check-updates": "^19.5.0",
+    "npm-check-updates": "^20.0.0",
     "table": "^6.9.0",
     "wonderful-version": "^1.3.2",
     "yargs": "^18.0.0"
   },
   "devDependencies": {
-    "mocha": "^8.4.0",
-    "prepare-package": "^1.2.6"
+    "mocha": "^11.7.5",
+    "prepare-package": "^2.0.7"
   }
 }

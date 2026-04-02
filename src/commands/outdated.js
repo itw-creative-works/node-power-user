@@ -7,6 +7,7 @@ const path = require('path');
 const version = require('wonderful-version');
 const inquirer = require('@inquirer/prompts');
 const ncu = require('npm-check-updates');
+const socket = require('../lib/socket');
 const { execute } = require('node-powertools');
 
 // Load package.json
@@ -23,13 +24,31 @@ module.exports = async function (options) {
     return {};
   }
 
+  // Check socket status upfront (blocks if not installed unless --force)
+  await socket.check({ force: options.force });
+
+  if (options.force) {
+    logger.warn(chalk.red('--force flag detected — Socket supply chain protection is bypassed!'));
+  }
+
   // Log start
   logger.log(`Checking packages for ${logger.format.bold(projectJson.name || 'Unknown Project')}...`);
+
+  // Parse --ignore flag (comma-separated list of package names to skip)
+  const ignoreList = (options.ignore || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  if (ignoreList.length > 0) {
+    logger.log(chalk.dim(`Ignoring: ${ignoreList.join(', ')}`));
+  }
 
   // Run ncu for patch, minor, and latest (include peer dependencies)
   const ncuOptions = {
     packageFile: packageJsonPath,
     dep: 'prod,dev,peer,optional',
+    ...(ignoreList.length > 0 ? { reject: ignoreList } : {}),
   };
 
   const [patchUpgrades, minorUpgrades, latestUpgrades] = await Promise.all([
@@ -49,7 +68,7 @@ module.exports = async function (options) {
   // Build unified package data
   const allPackages = new Map();
 
-  for (const dep of Object.keys(allDependencies)) {
+  for (const dep of Object.keys(allDependencies).filter(d => !ignoreList.includes(d))) {
     const packageVersion = version.clean(allDependencies[dep]);
     const installedPackagePath = path.join(projectPath, 'node_modules', dep, 'package.json');
 
@@ -225,6 +244,9 @@ module.exports = async function (options) {
     : action === 'minor' ? minorUpgrades
     : latestUpgrades;
 
+  // Back up package.json before modifying
+  const packageJsonBackup = jetpack.read(packageJsonPath);
+
   await ncu.run({
     packageFile: packageJsonPath,
     target: action,
@@ -233,9 +255,80 @@ module.exports = async function (options) {
 
   logger.log(logger.format.green(`\nUpdated ${Object.keys(upgrades).length} package(s) in package.json.`));
 
-  // Run npm install
-  logger.log(logger.format.cyan('\nRunning npm install...'));
-  await execute('npm install', { log: true });
+  // Install the specific upgraded packages so npm actually pulls them in
+  // (plain `npm install` won't upgrade packages that already satisfy the range)
+  const packageNames = Object.keys(upgrades);
+  const installCmd = `npm install ${packageNames.map(name => `${name}@${version.clean(upgrades[name])}`).join(' ')}`;
+  logger.log(logger.format.cyan(`\nRunning ${installCmd}...`));
+
+  try {
+    await socket.wrap(installCmd, { force: options.force });
+  } catch (e) {
+    const flaggedPackages = e.flaggedPackages || [];
+
+    // Restore package.json since the bulk install failed
+    jetpack.write(packageJsonPath, packageJsonBackup);
+    logger.log('package.json has been restored to its original state.');
+
+    // Trace which of the requested packages bring in the flagged deps
+    const riskyParents = new Set();
+
+    if (flaggedPackages.length > 0) {
+      logger.log('');
+      logger.error('Socket flagged the following transitive dependencies:');
+
+      for (const flagged of flaggedPackages) {
+        const flaggedName = flagged.replace(/@[^@]+$/, ''); // strip version
+        let parentChain = '';
+
+        try {
+          const lsOutput = await execute(`npm ls ${flaggedName} --json`, { log: false });
+          const tree = JSON.parse(lsOutput);
+
+          // Find which top-level deps depend on the flagged package
+          const parents = [];
+          for (const [dep, info] of Object.entries(tree.dependencies || {})) {
+            if (dep === flaggedName || JSON.stringify(info).includes(`"${flaggedName}"`)) {
+              parents.push(dep);
+              riskyParents.add(dep);
+            }
+          }
+
+          if (parents.length > 0) {
+            parentChain = chalk.dim(` (from ${parents.join(', ')})`);
+          }
+        } catch (_) {
+          // npm ls may fail, just skip the trace
+        }
+
+        logger.error(`  • ${flagged}${parentChain}`);
+      }
+    }
+
+    // Suggest retry commands
+    if (riskyParents.size > 0) {
+      const ignoreArg = [...riskyParents].join(',');
+      logger.log('');
+      logger.log('To skip the risky packages and update the rest:');
+      logger.log(logger.format.cyan(`  npu out --ignore ${ignoreArg}`));
+    }
+
+    logger.log('');
+    logger.log('To retry with Socket protection bypassed:');
+    logger.log(logger.format.cyan(`  npu out --force`));
+    logger.log('');
+    logger.log('To bypass Socket for this install only:');
+    logger.log(logger.format.cyan(`  SOCKET_CLI_ACCEPT_RISKS=1 npm install ${packageNames.map(name => `${name}@${version.clean(upgrades[name])}`).join(' ')}`));
+
+    return { allPackages, updated: false, target: action };
+  }
+
+  // Run full audit after install
+  try {
+    await socket.audit({ force: options.force });
+  } catch (e) {
+    logger.error(`Audit warning: ${e.message}`);
+  }
 
   return { allPackages, updated: true, target: action };
 };

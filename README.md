@@ -73,10 +73,31 @@ List all global packages for all versions of Node.js on your machine (you **must
 npu global
 ```
 
+### Install Packages
+Install packages with supply chain protection via [Socket](https://socket.dev/). Every install is wrapped with Socket to detect malicious or compromised packages — including transitive dependencies — before they're added to your project. After install, a full `socket npm audit` runs against your entire dependency tree.
+
+```shell
+npu install
+npu i <package>
+npu i <package> --save-dev
+npu i <package> --save-exact
+```
+
+**If Socket CLI is not installed, `npu install` will refuse to run.** Install it globally to enable protection:
+```shell
+npm install -g @socketsecurity/cli --save-exact
+```
+
+Use `--force` to bypass Socket protection (not recommended):
+```shell
+npu i <package> --force
+```
+
 ### Outdated Packages
-Compare the versions of installed modules to those in your package.json
+Compare the versions of installed modules to those in your package.json. When you choose to update, the install step and a full post-install audit are both wrapped with Socket for supply chain protection.
 ```shell
 npu outdated
+npu out --force  # bypass Socket protection
 ```
 
 ### List Packages
@@ -111,6 +132,19 @@ npu wait <ms>
 
 ### Global flags
   * `--debug`: Log the commands and flags before they are executed
+
+## 🛠️ Development
+To test commands locally while developing:
+```shell
+npm start -- <command> [options]
+```
+
+For example:
+```shell
+npm start -- outdated
+npm start -- bump patch
+npm start -- -v
+```
 
 ## 🗨️ Final Words
 If you are still having difficulty, we would love for you to post a question to [the Node Power User issues page](https://github.com/itw-creative-works/node-power-user/issues). It is much easier to answer questions that include your code and relevant files! So if you can provide them, we'd be extremely grateful (and more likely to help you find the answer!)
