@@ -93,6 +93,12 @@ Use `--force` to bypass Socket protection (not recommended):
 npu i <package> --force
 ```
 
+### Audit
+Run a Socket supply chain audit on your current dependency tree.
+```shell
+npu audit
+```
+
 ### Outdated Packages
 Compare the versions of installed modules to those in your package.json. When you choose to update, the install step and a full post-install audit are both wrapped with Socket for supply chain protection.
 ```shell

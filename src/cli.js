@@ -8,6 +8,7 @@ const ALIASES = {
   bump: ['-b', '--bump'],
   clean: ['-c', '--clean'],
   global: ['-g', '--global'],
+  audit: ['--audit'],
   install: ['-i', '--install', 'i'],
   open: ['--open', 'repo', '--repo'],
   outdated: ['-o', 'out', '--outdated', '-u', '--update', 'up', 'update'],
