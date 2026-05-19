@@ -264,11 +264,19 @@ module.exports = async function (options) {
   try {
     await socket.wrap(installCmd, { force: options.force });
   } catch (e) {
-    const flaggedPackages = e.flaggedPackages || [];
-
     // Restore package.json since the bulk install failed
     jetpack.write(packageJsonPath, packageJsonBackup);
     logger.log('package.json has been restored to its original state.');
+
+    // npm itself failed (ERESOLVE, network, peer-dep conflict) — not a Socket block.
+    // The npm error was already printed above; just acknowledge and stop.
+    if (e.reason === 'npm-failed') {
+      logger.log('');
+      logger.log('Fix the npm error above (e.g. resolve peer-dep conflicts) and retry.');
+      return { allPackages, updated: false, target: action };
+    }
+
+    const flaggedPackages = e.flaggedPackages || [];
 
     // Trace which of the requested packages bring in the flagged deps
     const riskyParents = new Set();

@@ -36,6 +36,14 @@ module.exports = async function (options) {
   try {
     await socket.wrap(command, { force: options.force });
   } catch (e) {
+    // npm itself failed (ERESOLVE, network, peer-dep conflict) — not a Socket block.
+    // The npm error was already printed above; just acknowledge and stop.
+    if (e.reason === 'npm-failed') {
+      logger.log('');
+      logger.log('Fix the npm error above (e.g. resolve peer-dep conflicts) and retry.');
+      return;
+    }
+
     const flaggedPackages = e.flaggedPackages || [];
 
     if (flaggedPackages.length > 0) {

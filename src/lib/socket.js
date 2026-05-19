@@ -72,12 +72,21 @@ async function wrap(command, options) {
     console.log(output);
   }
 
-  // Check for risk warnings in output
-  const hasRisks = exitedWithError
-    || (/new risk|warning|alert|socket found|exiting due to risks/i.test(output)
-      && !/no new risks/i.test(output));
+  // Distinguish a real Socket risk-block from a generic npm failure.
+  // Socket prints its own markers when it blocks; npm failures (ERESOLVE,
+  // network errors, peer-dep conflicts) just exit non-zero with npm errors.
+  const socketBlocked = /new risk|socket found|exiting due to risks/i.test(output)
+    && !/no new risks/i.test(output);
 
-  if (!hasRisks) {
+  // Subprocess failed but Socket didn't actually block — surface the npm error honestly.
+  if (exitedWithError && !socketBlocked) {
+    logger.error('npm install failed. See the error output above.');
+    const err = new Error('npm install failed.');
+    err.reason = 'npm-failed';
+    throw err;
+  }
+
+  if (!socketBlocked) {
     return;
   }
 
@@ -95,6 +104,7 @@ async function wrap(command, options) {
   if (!options.force) {
     logger.error('Refusing to install. Review the risks above, then use --force to bypass.');
     const err = new Error('Socket detected supply chain risks.');
+    err.reason = 'socket-blocked';
     err.flaggedPackages = flaggedPackages;
     throw err;
   }
@@ -130,12 +140,16 @@ async function audit(options) {
     console.log(output);
   }
 
-  // Check for risk warnings in output
-  const hasRisks = exitedWithError
-    || (/new risk|warning|alert|socket found|exiting due to risks/i.test(output)
-      && !/no new risks/i.test(output));
+  // Distinguish a real Socket risk-finding from a generic audit-subprocess failure.
+  const socketFoundRisks = /new risk|socket found|exiting due to risks/i.test(output)
+    && !/no new risks/i.test(output);
 
-  if (!hasRisks) {
+  if (exitedWithError && !socketFoundRisks) {
+    logger.warn('Socket audit subprocess failed (not a risk finding). See output above.');
+    return;
+  }
+
+  if (!socketFoundRisks) {
     logger.log(logger.format.green('Socket audit passed — no risks detected.'));
     return;
   }

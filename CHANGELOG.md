@@ -15,6 +15,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [2.1.2] - 2026-05-18
+### Fixed
+- Socket wrap no longer mislabels npm subprocess failures (ERESOLVE, peer-dep conflicts, network errors) as supply chain risk-blocks. The thrown error now carries a `reason` of either `socket-blocked` or `npm-failed`, and `npu install` / `npu outdated` show an honest "npm install failed" message with proper next-step advice instead of misleading Socket bypass instructions.
+- Removed `warning` and `alert` from the Socket risk-marker regex to eliminate false positives from unrelated npm output.
+- Applied the same exit-code-vs-output discrimination to `socket.audit` so audit subprocess failures aren't mislabeled as risk findings.
+
+---
 ## [2.1.1] - 2026-04-02
 ### Added
 - Standalone `npu audit` command for running Socket supply chain audit on current dependency tree
