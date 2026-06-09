@@ -15,6 +15,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [2.1.4] - 2026-06-09
+### Added
+- `--cwd` / `-C` flag to run npu against a different directory (e.g. `npu -C /path/to/project out`).
+
+### Fixed
+- `npu install pkg@latest` now actually installs the latest version. Previously npm would report "up to date" due to stale lockfile caching — npu now removes the existing `node_modules` copy before re-installing when an explicit version or tag is specified.
+- `npu outdated` discrepancy handling now distinguishes direction: **Sync** installs packages where `node_modules` is behind `package.json`, while **Reconcile** updates `package.json` where `node_modules` is ahead. Previously, Reconcile would always downgrade `package.json` to match an older installed version.
+
+---
 ## [2.1.3] - 2026-05-18
 ### Changed
 - Bumped `@inquirer/prompts` 8.3.2 → 8.4.3.

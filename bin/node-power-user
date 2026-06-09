@@ -1,6 +1,13 @@
 #!/usr/bin/env node
 const { hideBin } = require('yargs/helpers');
 const argv = require('yargs')(hideBin(process.argv)).parseSync();
+
+// --cwd / -C: run as if invoked from a different directory
+const targetDir = argv.cwd || argv.C;
+if (targetDir) {
+  process.chdir(targetDir);
+}
+
 const cli = new (require('../dist/cli.js'))();
 (async function() {
   'use strict';

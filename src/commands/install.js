@@ -1,6 +1,8 @@
 // Libraries
 const logger = new (require('../lib/logger'))('node-power-user');
 const socket = require('../lib/socket');
+const jetpack = require('fs-jetpack');
+const path = require('path');
 
 // Module
 module.exports = async function (options) {
@@ -20,6 +22,26 @@ module.exports = async function (options) {
 
   if (options.g || options.global) {
     flags.push('--global');
+  }
+
+  // When installing specific packages with a version/tag (e.g. @latest, @^2.0.0),
+  // remove existing node_modules copies first so npm actually re-fetches them
+  // instead of reporting "up to date" with a stale cached version.
+  if (packages.length > 0 && !flags.includes('--global')) {
+    for (const pkg of packages) {
+      // For scoped packages like @scope/name@version, skip the leading @
+      const searchFrom = pkg.startsWith('@') ? 1 : 0;
+      const versionIdx = pkg.indexOf('@', searchFrom);
+      if (versionIdx <= 0) {
+        continue;
+      }
+
+      const pkgName = pkg.substring(0, versionIdx);
+      const pkgDir = path.join(process.cwd(), 'node_modules', pkgName);
+      if (jetpack.exists(pkgDir)) {
+        jetpack.remove(pkgDir);
+      }
+    }
   }
 
   const command = packages.length > 0

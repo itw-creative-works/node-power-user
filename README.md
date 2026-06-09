@@ -106,6 +106,10 @@ npu outdated
 npu out --force  # bypass Socket protection
 ```
 
+When discrepancies are found between `package.json` and `node_modules`, the menu offers context-aware actions:
+- **Sync** — when `node_modules` is *behind* `package.json`, installs packages to match what `package.json` declares.
+- **Reconcile** — when `node_modules` is *ahead* of `package.json`, updates `package.json` to match installed versions.
+
 ### List Packages
 List all packages in your project.
 ```shell
@@ -137,6 +141,7 @@ npu wait <ms>
 ```
 
 ### Global flags
+  * `-C <dir>`, `--cwd <dir>`: Run as if invoked from `<dir>` (e.g. `npu -C /path/to/project out`)
   * `--debug`: Log the commands and flags before they are executed
 
 ## 🛠️ Development

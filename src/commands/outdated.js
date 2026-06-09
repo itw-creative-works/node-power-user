@@ -143,8 +143,19 @@ module.exports = async function (options) {
     logger.log(chalk.dim('Legend: ') + chalk.magenta('⚠ = major version (breaking changes)'));
   }
 
-  // Get counts for menu (only show a tier if it offers upgrades beyond the tier below)
+  // Separate discrepancies into two categories:
+  // - "behind": node_modules has an OLDER version than package.json wants (needs npm install)
+  // - "ahead": node_modules has a NEWER version than package.json specifies (reconcile package.json)
   const discrepancies = [...allPackages.values()].filter(pkg => pkg.hasDiscrepancy);
+  const behindPackages = discrepancies.filter(pkg =>
+    pkg.installedVersion !== '?' && version.is(pkg.installedVersion, '<', pkg.packageVersion)
+  );
+  const aheadPackages = discrepancies.filter(pkg =>
+    pkg.installedVersion !== '?' && version.is(pkg.installedVersion, '>', pkg.packageVersion)
+  );
+  const unknownPackages = discrepancies.filter(pkg => pkg.installedVersion === '?');
+
+  // Get counts for menu (only show a tier if it offers upgrades beyond the tier below)
   const patchCount = Object.keys(patchUpgrades).length;
   const minorCount = Object.keys(minorUpgrades).length;
   const majorCount = Object.keys(latestUpgrades).length;
@@ -180,9 +191,19 @@ module.exports = async function (options) {
   if (!action) {
     const choices = [];
 
-    if (discrepancies.length > 0) {
+    // "Sync" installs packages where node_modules is behind package.json
+    const syncCount = behindPackages.length + unknownPackages.length;
+    if (syncCount > 0) {
       choices.push({
-        name: `Reconcile (${discrepancies.length}) - sync package.json to installed versions`,
+        name: `Sync (${syncCount}) - install packages to match package.json`,
+        value: 'sync',
+      });
+    }
+
+    // "Reconcile" updates package.json where node_modules is ahead
+    if (aheadPackages.length > 0) {
+      choices.push({
+        name: `Reconcile (${aheadPackages.length}) - sync package.json to installed versions`,
         value: 'reconcile',
       });
     }
@@ -220,12 +241,39 @@ module.exports = async function (options) {
     return { allPackages };
   }
 
-  // Handle reconcile
+  // Handle sync — run npm install for packages where node_modules is behind package.json
+  if (action === 'sync') {
+    const toSync = [...behindPackages, ...unknownPackages];
+    const installCmd = `npm install ${toSync.map(pkg => `${pkg.name}@${pkg.packageVersion}`).join(' ')}`;
+    logger.log(logger.format.cyan(`\nRunning ${installCmd}...`));
+
+    try {
+      await socket.wrap(installCmd, { force: options.force });
+    } catch (e) {
+      if (e.reason === 'npm-failed') {
+        logger.log('');
+        logger.log('Fix the npm error above and retry.');
+        return { allPackages, updated: false };
+      }
+      throw e;
+    }
+
+    try {
+      await socket.audit({ force: options.force });
+    } catch (e) {
+      logger.error(`Audit warning: ${e.message}`);
+    }
+
+    logger.log(logger.format.green(`\nSynced ${toSync.length} package(s) to match package.json.`));
+    return { allPackages, synced: true };
+  }
+
+  // Handle reconcile — update package.json for packages where node_modules is ahead
   if (action === 'reconcile') {
-    // Re-read in case it changed
     projectJson = jetpack.read(packageJsonPath, 'json');
 
-    for (const pkg of discrepancies) {
+    const toReconcile = aheadPackages.length > 0 ? aheadPackages : discrepancies;
+    for (const pkg of toReconcile) {
       const depType = pkg.type === 'dev' ? 'devDependencies'
         : pkg.type === 'peer' ? 'peerDependencies'
         : 'dependencies';
@@ -234,7 +282,7 @@ module.exports = async function (options) {
     }
 
     jetpack.write(packageJsonPath, projectJson);
-    logger.log(logger.format.green(`\nReconciled ${discrepancies.length} package(s) in package.json.`));
+    logger.log(logger.format.green(`\nReconciled ${toReconcile.length} package(s) in package.json.`));
 
     return { allPackages, reconciled: true };
   }
