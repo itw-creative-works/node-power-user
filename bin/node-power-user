@@ -11,5 +11,12 @@ if (targetDir) {
 const cli = new (require('../dist/cli.js'))();
 (async function() {
   'use strict';
-  await cli.process(argv);
+
+  // cli.process logs errors itself — exit non-zero without an unhandled
+  // rejection crash (which dumps noise from libraries with global handlers)
+  try {
+    await cli.process(argv);
+  } catch (e) {
+    process.exitCode = 1;
+  }
 }());

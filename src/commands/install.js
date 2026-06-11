@@ -1,8 +1,7 @@
 // Libraries
 const logger = new (require('../lib/logger'))('node-power-user');
 const socket = require('../lib/socket');
-const jetpack = require('fs-jetpack');
-const path = require('path');
+const npm = require('../lib/npm');
 
 // Module
 module.exports = async function (options) {
@@ -28,6 +27,8 @@ module.exports = async function (options) {
   // remove existing node_modules copies first so npm actually re-fetches them
   // instead of reporting "up to date" with a stale cached version.
   if (packages.length > 0 && !flags.includes('--global')) {
+    const names = [];
+
     for (const pkg of packages) {
       // For scoped packages like @scope/name@version, skip the leading @
       const searchFrom = pkg.startsWith('@') ? 1 : 0;
@@ -36,12 +37,10 @@ module.exports = async function (options) {
         continue;
       }
 
-      const pkgName = pkg.substring(0, versionIdx);
-      const pkgDir = path.join(process.cwd(), 'node_modules', pkgName);
-      if (jetpack.exists(pkgDir)) {
-        jetpack.remove(pkgDir);
-      }
+      names.push(pkg.substring(0, versionIdx));
     }
+
+    npm.removeInstalledCopies(names);
   }
 
   const command = packages.length > 0

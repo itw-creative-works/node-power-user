@@ -15,6 +15,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [2.1.5] - 2026-06-11
+### Fixed
+- `npu outdated` installs (Sync and Patch/Minor/Major) now remove the targeted `node_modules` copies before installing — the same stale-lockfile fix applied to `npu install` in 2.1.4. Previously, when `node_modules` was physically stale but the lockfiles already recorded the new versions (e.g. after a Socket-blocked install), `npm install pkg@version` reported "up to date" without installing anything, trapping projects in an endless Reconcile ↔ Update loop where every action "succeeded" but `node_modules` never changed.
+- `npu out -r` (Reconcile) is now strictly ahead-only. It no longer falls back to downgrading `package.json` to match a stale install when no packages are ahead — instead it points you at Sync.
+- Sync now handles Socket risk-blocks gracefully: it lists the flagged packages, suggests `socket npm update <pkg>` for fixable CVEs in transitive deps pinned by `package-lock.json`, and offers `npu out --sync --force` — instead of crashing with an unhandled rejection.
+- The CLI bin now exits with code 1 on command failure instead of crashing with an unhandled rejection (which dumped bundled npm-check-updates source to the terminal).
+- `npm test` script invokes `mocha` from PATH — mocha ≥9 ships `bin/mocha.js`, so the hardcoded `./node_modules/mocha/bin/mocha` path no longer exists.
+
+### Added
+- Integrity check on every `npu outdated` run: npu compares what `node_modules/.package-lock.json` claims is installed against the packages physically on disk — including transitive deps the table can't show — and warns about desynced copies (the silent-no-op corruption left behind by interrupted or Socket-blocked installs). Platform-skipped optional packages (e.g. `@esbuild/*`, `fsevents`) are correctly ignored.
+- **Heal** action for `npu outdated` (menu option + `--heal` flag): removes desynced copies and reinstalls under Socket so node_modules matches the lockfile again, then re-verifies. Runs even when the version table itself is clean.
+- Post-install verification for `npu outdated`: after Sync or Patch/Minor/Major installs, npu confirms the requested versions physically landed in `node_modules` and errors loudly if npm silently did nothing.
+- `--sync` shortcut flag for `npu out` to install behind packages without the interactive menu.
+- Shared `lib/npm.js` helpers (`removeInstalledCopies`, `removeLocations`, `findDesynced`, `verifyInstalled`) used by both `install` and `outdated`.
+
+### Changed
+- Failed or Socket-blocked installs in `npu outdated` now restore `package-lock.json` alongside `package.json`. Previously only `package.json` was restored, which could leave the lockfile advanced past the physical files — the exact desync that mints silent no-op installs. Blocked installs deliberately do NOT auto-reinstall the removed copies (that would bypass the Socket block); they stay removed and are reported as missing until resolved.
+
+---
 ## [2.1.4] - 2026-06-09
 ### Added
 - `--cwd` / `-C` flag to run npu against a different directory (e.g. `npu -C /path/to/project out`).

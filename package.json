@@ -1,10 +1,10 @@
 {
   "name": "node-power-user",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "description": "Easy tools for every Node.js developer!",
   "main": "dist/index.js",
   "scripts": {
-    "test": "npm run prepare && ./node_modules/mocha/bin/mocha test/ --recursive --timeout=10000",
+    "test": "npm run prepare && mocha test/ --recursive --timeout=10000",
     "start": "npm run prepare && ./bin/node-power-user",
     "help": "echo 'npm start -- -v'",
     "prepare": "node -e \"require('prepare-package')()\"",

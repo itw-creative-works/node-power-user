@@ -55,6 +55,15 @@ describe(`${package.name}`, () => {
       }
     });
 
+    it('should return desynced as an array of lockfile-vs-disk mismatches', async () => {
+      const result = await library.process({_: ['outdated'], noPrompt: true});
+      assert.ok(Array.isArray(result.desynced), 'desynced should be an array');
+      for (const d of result.desynced) {
+        assert.equal(typeof d.loc, 'string', 'desynced loc should be a string');
+        assert.ok(d.lockfileVersion, 'desynced entries should have a lockfileVersion');
+      }
+    });
+
   });
 
 })

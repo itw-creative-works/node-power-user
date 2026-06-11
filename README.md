@@ -103,12 +103,21 @@ npu audit
 Compare the versions of installed modules to those in your package.json. When you choose to update, the install step and a full post-install audit are both wrapped with Socket for supply chain protection.
 ```shell
 npu outdated
-npu out --force  # bypass Socket protection
+npu out --heal        # skip the menu: reinstall copies that don't match package-lock.json
+npu out --sync        # skip the menu: install packages to match package.json
+npu out -r            # skip the menu: reconcile package.json to installed versions
+npu out -P | -m | -M  # skip the menu: apply patch / minor / major updates
+npu out --force       # bypass Socket protection
 ```
 
-When discrepancies are found between `package.json` and `node_modules`, the menu offers context-aware actions:
+Every run starts with an integrity check: npu compares what `node_modules/.package-lock.json` claims is installed against the packages physically on disk — including transitive deps the table can't show. Desynced copies (stale or partially-extracted installs, typically left behind by an interrupted or Socket-blocked install) make npm silently no-op (`npm install` trusts the lockfile over the disk), so npu warns about them and offers to heal.
+
+When problems are found, the menu offers context-aware actions:
+- **Heal** — when disk copies don't match `package-lock.json`, removes them and reinstalls so reality matches the lockfile again.
 - **Sync** — when `node_modules` is *behind* `package.json`, installs packages to match what `package.json` declares.
-- **Reconcile** — when `node_modules` is *ahead* of `package.json`, updates `package.json` to match installed versions.
+- **Reconcile** — when `node_modules` is *ahead* of `package.json`, updates `package.json` to match installed versions. Strictly ahead-only — it never downgrades `package.json` to match a stale install.
+
+Installs remove the targeted `node_modules` copies first so npm actually re-fetches them (instead of trusting a stale lockfile and reporting "up to date"), then npu verifies the new versions physically landed in `node_modules`. If an install fails or Socket blocks it, both `package.json` and `package-lock.json` are restored — npu never leaves the lockfile advanced past the files on disk.
 
 ### List Packages
 List all packages in your project.
