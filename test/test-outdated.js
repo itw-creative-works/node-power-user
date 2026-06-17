@@ -1,0 +1,412 @@
+const assert = require('assert');
+const version = require('wonderful-version');
+
+describe('outdated command', () => {
+  // ═══════════════════════════════════════════════════════════════════
+  //  hasMajorUpdate logic (THE BUG FIX)
+  //
+  //  Old code: hasMajorUpdate = latestVersion && minorVersion !== latestVersion
+  //  Fixed:    hasMajorUpdate = latestVersion && latestVersion.split('.')[0] !== packageVersion.split('.')[0]
+  //
+  //  The old heuristic broke when ncu didn't return a package in its
+  //  "minor" tier, causing minorVersion to be null and any update to
+  //  be flagged as a breaking change — even a minor bump like
+  //  electron-builder 26.8.1 → 26.15.3.
+  // ═══════════════════════════════════════════════════════════════════
+  describe('hasMajorUpdate detection', () => {
+    function hasMajorUpdate(packageVersion, latestVersion) {
+      return latestVersion && latestVersion.split('.')[0] !== packageVersion.split('.')[0];
+    }
+
+    describe('same-major bumps (should NOT flag)', () => {
+      it('26.8.1 → 26.15.3 (the notifly-desktop bug)', () => {
+        assert.equal(hasMajorUpdate('26.8.1', '26.15.3'), false);
+      });
+
+      it('42.0.1 → 42.4.1 (electron-style)', () => {
+        assert.equal(hasMajorUpdate('42.0.1', '42.4.1'), false);
+      });
+
+      it('1.0.0 → 1.0.5 (patch only)', () => {
+        assert.equal(hasMajorUpdate('1.0.0', '1.0.5'), false);
+      });
+
+      it('1.2.3 → 1.9.0 (minor jump)', () => {
+        assert.equal(hasMajorUpdate('1.2.3', '1.9.0'), false);
+      });
+
+      it('0.1.0 → 0.9.0 (0.x minor jump)', () => {
+        assert.equal(hasMajorUpdate('0.1.0', '0.9.0'), false);
+      });
+
+      it('3.0.0 → 3.0.0 (no change)', () => {
+        assert.equal(hasMajorUpdate('3.0.0', '3.0.0'), false);
+      });
+
+      it('100.0.0 → 100.99.99 (large version numbers)', () => {
+        assert.equal(hasMajorUpdate('100.0.0', '100.99.99'), false);
+      });
+    });
+
+    describe('cross-major bumps (SHOULD flag)', () => {
+      it('4.0.0 → 5.0.0 (clean major bump)', () => {
+        assert.equal(hasMajorUpdate('4.0.0', '5.0.0'), true);
+      });
+
+      it('4.17.21 → 5.0.0 (major with trailing minor/patch)', () => {
+        assert.equal(hasMajorUpdate('4.17.21', '5.0.0'), true);
+      });
+
+      it('1.0.0 → 3.0.0 (multi-major jump)', () => {
+        assert.equal(hasMajorUpdate('1.0.0', '3.0.0'), true);
+      });
+
+      it('0.9.0 → 1.0.0 (0.x → 1.x)', () => {
+        assert.equal(hasMajorUpdate('0.9.0', '1.0.0'), true);
+      });
+
+      it('1.99.99 → 2.0.0 (right at boundary)', () => {
+        assert.equal(hasMajorUpdate('1.99.99', '2.0.0'), true);
+      });
+    });
+
+    describe('edge cases', () => {
+      it('should return falsy when latestVersion is null', () => {
+        assert.ok(!hasMajorUpdate('1.0.0', null));
+      });
+
+      it('should return falsy when latestVersion is undefined', () => {
+        assert.ok(!hasMajorUpdate('1.0.0', undefined));
+      });
+
+      it('should return falsy when latestVersion is empty string', () => {
+        assert.ok(!hasMajorUpdate('1.0.0', ''));
+      });
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  Old hasMajorUpdate logic (verifies the OLD code was broken)
+  //
+  //  This demonstrates exactly why the old approach failed.
+  // ═══════════════════════════════════════════════════════════════════
+  describe('old hasMajorUpdate logic (proving the bug)', () => {
+    function oldHasMajorUpdate(minorVersion, latestVersion) {
+      return latestVersion && minorVersion !== latestVersion;
+    }
+
+    it('would INCORRECTLY flag 26.8.1 → 26.15.3 when minorVersion is null', () => {
+      // When ncu doesn't return a package in the "minor" tier, minorVersion is null
+      // but latestVersion is set → the old check evaluates null !== '26.15.3' → true
+      const minorVersion = null;
+      const latestVersion = '26.15.3';
+      assert.equal(oldHasMajorUpdate(minorVersion, latestVersion), true,
+        'Old logic should produce a false positive here — this is the bug');
+    });
+
+    it('would INCORRECTLY flag when minorVersion differs from latestVersion for non-major reasons', () => {
+      // If ncu returns slightly different versions for minor vs latest
+      // (e.g., due to prerelease tags), the old check would false-positive
+      const minorVersion = '26.15.2';
+      const latestVersion = '26.15.3';
+      assert.equal(oldHasMajorUpdate(minorVersion, latestVersion), true,
+        'Old logic would flag this even though both are major 26');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  hasMajorBeyondMinor (menu option visibility)
+  // ═══════════════════════════════════════════════════════════════════
+  describe('hasMajorBeyondMinor detection', () => {
+    function hasMajorBeyondMinor(latestUpgrades, allDependencies) {
+      return Object.keys(latestUpgrades).some(dep => {
+        const latestMajor = version.clean(latestUpgrades[dep]).split('.')[0];
+        const currentMajor = version.clean(allDependencies[dep]).split('.')[0];
+        return latestMajor !== currentMajor;
+      });
+    }
+
+    it('should NOT show Major menu for notifly-desktop scenario (all minor bumps)', () => {
+      const latestUpgrades = {
+        'electron': '^42.4.1',
+        'electron-builder': '^26.15.3',
+      };
+      const allDependencies = {
+        'electron': '^42.0.1',
+        'electron-builder': '^26.8.1',
+      };
+      assert.equal(hasMajorBeyondMinor(latestUpgrades, allDependencies), false);
+    });
+
+    it('should show Major menu when one dep has a real major bump', () => {
+      const latestUpgrades = {
+        'electron': '^42.4.1',
+        'some-lib': '^5.0.0',
+      };
+      const allDependencies = {
+        'electron': '^42.0.1',
+        'some-lib': '^4.2.1',
+      };
+      assert.equal(hasMajorBeyondMinor(latestUpgrades, allDependencies), true);
+    });
+
+    it('should return false when no upgrades exist', () => {
+      assert.equal(hasMajorBeyondMinor({}, {}), false);
+    });
+
+    it('should handle tilde ranges', () => {
+      const latestUpgrades = { 'pkg-a': '~2.5.0' };
+      const allDependencies = { 'pkg-a': '~2.3.0' };
+      assert.equal(hasMajorBeyondMinor(latestUpgrades, allDependencies), false);
+    });
+
+    it('should handle bare versions (no range prefix)', () => {
+      const latestUpgrades = { 'pkg-a': '3.0.0' };
+      const allDependencies = { 'pkg-a': '2.9.0' };
+      assert.equal(hasMajorBeyondMinor(latestUpgrades, allDependencies), true);
+    });
+
+    it('should handle >= ranges', () => {
+      const latestUpgrades = { 'pkg-a': '>=2.0.0' };
+      const allDependencies = { 'pkg-a': '>=1.5.0' };
+      assert.equal(hasMajorBeyondMinor(latestUpgrades, allDependencies), true);
+    });
+
+    it('should return false when all deps stay on same major', () => {
+      const latestUpgrades = {
+        'a': '^1.5.0',
+        'b': '^2.8.0',
+        'c': '^10.3.0',
+      };
+      const allDependencies = {
+        'a': '^1.0.0',
+        'b': '^2.1.0',
+        'c': '^10.0.0',
+      };
+      assert.equal(hasMajorBeyondMinor(latestUpgrades, allDependencies), false);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  getDependencyType helper
+  // ═══════════════════════════════════════════════════════════════════
+  describe('getDependencyType', () => {
+    function getDependencyType(packageJson, dep) {
+      if (packageJson.devDependencies?.[dep]) {
+        return 'dev';
+      }
+      if (packageJson.peerDependencies?.[dep]) {
+        return 'peer';
+      }
+      return 'prod';
+    }
+
+    const mockPkg = {
+      dependencies: { 'express': '^4.0.0', 'lodash': '^4.17.0' },
+      devDependencies: { 'mocha': '^11.0.0', 'eslint': '^9.0.0' },
+      peerDependencies: { 'react': '^18.0.0' },
+    };
+
+    it('should return "prod" for production dependencies', () => {
+      assert.equal(getDependencyType(mockPkg, 'express'), 'prod');
+    });
+
+    it('should return "prod" for second production dependency', () => {
+      assert.equal(getDependencyType(mockPkg, 'lodash'), 'prod');
+    });
+
+    it('should return "dev" for devDependencies', () => {
+      assert.equal(getDependencyType(mockPkg, 'mocha'), 'dev');
+    });
+
+    it('should return "dev" for second devDependency', () => {
+      assert.equal(getDependencyType(mockPkg, 'eslint'), 'dev');
+    });
+
+    it('should return "peer" for peerDependencies', () => {
+      assert.equal(getDependencyType(mockPkg, 'react'), 'peer');
+    });
+
+    it('should default to "prod" for unknown packages', () => {
+      assert.equal(getDependencyType(mockPkg, 'not-a-dep'), 'prod');
+    });
+
+    it('should handle package.json with no dependency sections', () => {
+      assert.equal(getDependencyType({}, 'anything'), 'prod');
+    });
+
+    it('should handle package.json with only dependencies', () => {
+      assert.equal(getDependencyType({ dependencies: { a: '1.0.0' } }, 'a'), 'prod');
+    });
+
+    it('should handle package.json with only devDependencies', () => {
+      assert.equal(getDependencyType({ devDependencies: { a: '1.0.0' } }, 'a'), 'dev');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  Fixture: notifly-desktop scenario
+  //
+  //  This simulates the exact scenario from the bug report:
+  //    electron      42.0.1 (pkg.json) → 42.4.0 (installed) → 42.4.1 (latest)
+  //    electron-builder 26.8.1 (pkg.json) → 26.15.3 (installed) → 26.15.3 (latest)
+  //
+  //  Both should NOT be flagged as major/breaking changes.
+  // ═══════════════════════════════════════════════════════════════════
+  describe('fixture: notifly-desktop scenario', () => {
+    function buildPackageData(packageVersion, installedVersion, patchVersion, minorVersion, latestVersion) {
+      return {
+        packageVersion,
+        installedVersion,
+        patchVersion,
+        minorVersion,
+        latestVersion,
+        hasMajorUpdate: latestVersion && latestVersion.split('.')[0] !== packageVersion.split('.')[0],
+      };
+    }
+
+    it('electron 42.0.1 → 42.4.1 should NOT be flagged as major', () => {
+      const pkg = buildPackageData('42.0.1', '42.4.0', '42.0.1', '42.4.1', '42.4.1');
+      assert.equal(pkg.hasMajorUpdate, false);
+    });
+
+    it('electron-builder 26.8.1 → 26.15.3 should NOT be flagged as major', () => {
+      const pkg = buildPackageData('26.8.1', '26.15.3', null, '26.15.3', '26.15.3');
+      assert.equal(pkg.hasMajorUpdate, false);
+    });
+
+    it('electron-builder 26.8.1 → 26.15.3 with null minorVersion should NOT be flagged as major', () => {
+      // This is the exact failure mode: ncu didn't return electron-builder in minor tier
+      const pkg = buildPackageData('26.8.1', '26.15.3', null, null, '26.15.3');
+      assert.equal(pkg.hasMajorUpdate, false);
+    });
+
+    it('hypothetical lodash 4.17.21 → 5.0.0 SHOULD be flagged as major', () => {
+      const pkg = buildPackageData('4.17.21', '4.17.21', '4.17.21', '4.17.21', '5.0.0');
+      assert.equal(pkg.hasMajorUpdate, true);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  Fixture: mixed upgrade scenario
+  //
+  //  Some packages have minor updates, some have major updates.
+  //  Verify the classification is correct for each.
+  // ═══════════════════════════════════════════════════════════════════
+  describe('fixture: mixed upgrade scenario', () => {
+    const packages = [
+      { name: 'express',    current: '4.18.0', latest: '4.21.0', expectMajor: false },
+      { name: 'react',      current: '18.2.0', latest: '19.0.0', expectMajor: true },
+      { name: 'typescript', current: '5.3.0',  latest: '5.7.0',  expectMajor: false },
+      { name: 'webpack',    current: '5.90.0', latest: '6.0.0',  expectMajor: true },
+      { name: 'chalk',      current: '5.3.0',  latest: '5.6.0',  expectMajor: false },
+      { name: 'mocha',      current: '10.7.0', latest: '11.0.0', expectMajor: true },
+      { name: 'eslint',     current: '8.56.0', latest: '9.0.0',  expectMajor: true },
+      { name: 'prettier',   current: '3.1.0',  latest: '3.5.0',  expectMajor: false },
+    ];
+
+    for (const pkg of packages) {
+      const label = pkg.expectMajor ? 'SHOULD' : 'should NOT';
+      it(`${pkg.name} ${pkg.current} → ${pkg.latest} ${label} be flagged as major`, () => {
+        const hasMajor = pkg.latest.split('.')[0] !== pkg.current.split('.')[0];
+        assert.equal(hasMajor, pkg.expectMajor);
+      });
+    }
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  version.clean integration (our fix depends on cleaned versions)
+  // ═══════════════════════════════════════════════════════════════════
+  describe('version.clean integration', () => {
+    it('should strip caret prefix', () => {
+      assert.equal(version.clean('^26.8.1'), '26.8.1');
+    });
+
+    it('should strip tilde prefix', () => {
+      assert.equal(version.clean('~26.8.1'), '26.8.1');
+    });
+
+    it('should leave bare versions unchanged', () => {
+      assert.equal(version.clean('26.8.1'), '26.8.1');
+    });
+
+    it('should strip >= prefix', () => {
+      assert.equal(version.clean('>=4.0.0'), '4.0.0');
+    });
+
+    it('cleaned version should produce correct major extraction', () => {
+      const cleaned = version.clean('^26.8.1');
+      assert.equal(cleaned.split('.')[0], '26');
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  Integration: run outdated against this project (live)
+  // ═══════════════════════════════════════════════════════════════════
+  describe('integration (live)', function () {
+    this.timeout(30000);
+
+    let result;
+    let library;
+
+    before(async function () {
+      library = new (require('../dist/index.js'))();
+      result = await library.process({ _: ['outdated'], noPrompt: true });
+    });
+
+    it('should return a result object', () => {
+      assert.ok(result);
+    });
+
+    it('should return allPackages as a Map', () => {
+      assert.ok(result.allPackages instanceof Map);
+    });
+
+    it('should return desynced as an array', () => {
+      assert.ok(Array.isArray(result.desynced));
+    });
+
+    it('should contain valid package entries with required fields', () => {
+      for (const [name, pkg] of result.allPackages) {
+        assert.equal(typeof name, 'string', 'key should be a string');
+        assert.equal(pkg.name, name, 'pkg.name should match the map key');
+        assert.equal(typeof pkg.packageVersion, 'string', 'packageVersion should be a string');
+        assert.ok(pkg.installedVersion, 'installedVersion should exist');
+        assert.ok(['prod', 'dev', 'peer'].includes(pkg.type), `type should be prod/dev/peer, got: ${pkg.type}`);
+        assert.equal(typeof pkg.hasDiscrepancy, 'boolean', 'hasDiscrepancy should be boolean');
+        assert.equal(typeof pkg.hasMajorUpdate, 'boolean', 'hasMajorUpdate should be boolean');
+      }
+    });
+
+    it('should only flag hasMajorUpdate when major version actually differs', () => {
+      for (const [name, pkg] of result.allPackages) {
+        if (!pkg.latestVersion || !pkg.packageVersion) {
+          continue;
+        }
+
+        const currentMajor = pkg.packageVersion.split('.')[0];
+        const latestMajor = pkg.latestVersion.split('.')[0];
+
+        if (currentMajor === latestMajor) {
+          assert.equal(pkg.hasMajorUpdate, false,
+            `${name} ${pkg.packageVersion} → ${pkg.latestVersion} incorrectly flagged as major update`);
+        }
+      }
+    });
+
+    it('should have latestVersion set for packages flagged as major', () => {
+      for (const [name, pkg] of result.allPackages) {
+        if (pkg.hasMajorUpdate) {
+          assert.ok(pkg.latestVersion, `${name} flagged as major but has no latestVersion`);
+        }
+      }
+    });
+
+    it('desynced entries should have required fields', () => {
+      for (const d of result.desynced) {
+        assert.equal(typeof d.loc, 'string', 'loc should be a string');
+        assert.ok(d.lockfileVersion, 'lockfileVersion should exist');
+      }
+    });
+  });
+});

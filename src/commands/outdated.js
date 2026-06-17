@@ -103,7 +103,7 @@ module.exports = async function (options) {
         latestVersion,
         type: getDependencyType(projectJson, dep),
         hasDiscrepancy,
-        hasMajorUpdate: latestVersion && minorVersion !== latestVersion,
+        hasMajorUpdate: latestVersion && latestVersion.split('.')[0] !== packageVersion.split('.')[0],
       });
     }
   }
@@ -186,9 +186,11 @@ module.exports = async function (options) {
   );
 
   // Check if major/latest offers any versions beyond what minor gives
-  const hasMajorBeyondMinor = Object.keys(latestUpgrades).some(dep =>
-    latestUpgrades[dep] !== (minorUpgrades[dep] || allDependencies[dep])
-  );
+  const hasMajorBeyondMinor = Object.keys(latestUpgrades).some(dep => {
+    const latestMajor = version.clean(latestUpgrades[dep]).split('.')[0];
+    const currentMajor = version.clean(allDependencies[dep]).split('.')[0];
+    return latestMajor !== currentMajor;
+  });
 
   // If noPrompt, return data without showing menu (used by tests)
   if (options.noPrompt) {

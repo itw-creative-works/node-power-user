@@ -15,6 +15,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [2.1.6] - 2026-06-17
+### Fixed
+- `npu outdated` no longer falsely flags minor-only version bumps as breaking changes (e.g. `electron-builder` 26.8.1 → 26.15.3 was incorrectly showing ⚠). The check now compares actual semver major version numbers instead of relying on ncu tier comparison, which silently broke when ncu omitted a package from its minor tier.
+- "Major" menu option in `npu out` no longer appears when all available upgrades are minor bumps — same root cause fix applied to the menu visibility logic.
+
+### Added
+- Comprehensive test suite: 132 tests across 7 files covering CLI routing, outdated version classification, `lib/npm` helpers (with temp fixture directories), bump logic, version command, and wait command. The notifly-desktop false-positive scenario is a dedicated fixture test.
+
+---
 ## [2.1.5] - 2026-06-11
 ### Fixed
 - `npu outdated` installs (Sync and Patch/Minor/Major) now remove the targeted `node_modules` copies before installing — the same stale-lockfile fix applied to `npu install` in 2.1.4. Previously, when `node_modules` was physically stale but the lockfiles already recorded the new versions (e.g. after a Socket-blocked install), `npm install pkg@version` reported "up to date" without installing anything, trapping projects in an endless Reconcile ↔ Update loop where every action "succeeded" but `node_modules` never changed.
