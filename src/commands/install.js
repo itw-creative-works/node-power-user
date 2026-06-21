@@ -53,37 +53,21 @@ module.exports = async function (options) {
   // Log
   logger.log(`Running: ${logger.format.cyan(command)}`);
 
-  // Wrap with socket
+  // Wrap with Socket Firewall
   try {
     await socket.wrap(command, { force: options.force });
   } catch (e) {
-    // npm itself failed (ERESOLVE, network, peer-dep conflict) — not a Socket block.
-    // The npm error was already printed above; just acknowledge and stop.
     if (e.reason === 'npm-failed') {
       logger.log('');
       logger.log('Fix the npm error above (e.g. resolve peer-dep conflicts) and retry.');
       return;
     }
 
-    const flaggedPackages = e.flaggedPackages || [];
-
-    if (flaggedPackages.length > 0) {
-      logger.log('');
-      logger.error('Socket flagged the following dependencies:');
-      flaggedPackages.forEach(pkg => logger.error(`  • ${pkg}`));
-    }
-
     logger.log('');
-    logger.log('To retry with Socket protection bypassed:');
+    logger.log('Install blocked. See the output above for details.');
+    logger.log('To retry without firewall protection:');
     logger.log(logger.format.cyan(`  npu i ${packages.join(' ')} ${flags.join(' ')} --force`.trim()));
     return;
-  }
-
-  // Run full audit after install
-  try {
-    await socket.audit({ force: options.force });
-  } catch (e) {
-    logger.error(`Audit warning: ${e.message}`);
   }
 
   // Done

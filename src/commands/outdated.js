@@ -456,65 +456,16 @@ module.exports = async function (options) {
     logger.log('package.json and package-lock.json have been restored to their original state.');
     logger.log('The removed package copies will show as missing in the next check until reinstalled.');
 
-    // npm itself failed (ERESOLVE, network, peer-dep conflict) — not a Socket block.
-    // The npm error was already printed above; just acknowledge and stop.
     if (e.reason === 'npm-failed') {
       logger.log('');
       logger.log('Fix the npm error above (e.g. resolve peer-dep conflicts) and retry.');
       return { allPackages, desynced, updated: false, target: action };
     }
 
-    const flaggedPackages = e.flaggedPackages || [];
-
-    // Trace which of the requested packages bring in the flagged deps
-    const riskyParents = new Set();
-
-    if (flaggedPackages.length > 0) {
-      logger.log('');
-      logger.error('Socket flagged the following transitive dependencies:');
-
-      for (const flagged of flaggedPackages) {
-        const flaggedName = flagged.replace(/@[^@]+$/, ''); // strip version
-        let parentChain = '';
-
-        try {
-          const lsOutput = await execute(`npm ls ${flaggedName} --json`, { log: false });
-          const tree = JSON.parse(lsOutput);
-
-          // Find which top-level deps depend on the flagged package
-          const parents = [];
-          for (const [dep, info] of Object.entries(tree.dependencies || {})) {
-            if (dep === flaggedName || JSON.stringify(info).includes(`"${flaggedName}"`)) {
-              parents.push(dep);
-              riskyParents.add(dep);
-            }
-          }
-
-          if (parents.length > 0) {
-            parentChain = chalk.dim(` (from ${parents.join(', ')})`);
-          }
-        } catch (_) {
-          // npm ls may fail, just skip the trace
-        }
-
-        logger.error(`  • ${flagged}${parentChain}`);
-      }
-    }
-
-    // Suggest retry commands
-    if (riskyParents.size > 0) {
-      const ignoreArg = [...riskyParents].join(',');
-      logger.log('');
-      logger.log('To skip the risky packages and update the rest:');
-      logger.log(logger.format.cyan(`  npu out --ignore ${ignoreArg}`));
-    }
-
     logger.log('');
-    logger.log('To retry with Socket protection bypassed:');
+    logger.log('Install blocked. See the output above for details.');
+    logger.log('To retry without firewall protection:');
     logger.log(logger.format.cyan(`  npu out --force`));
-    logger.log('');
-    logger.log('To bypass Socket for this install only:');
-    logger.log(logger.format.cyan(`  SOCKET_CLI_ACCEPT_RISKS=1 npm install ${packageNames.map(name => `${name}@${version.clean(upgrades[name])}`).join(' ')}`));
 
     return { allPackages, desynced, updated: false, target: action };
   }
@@ -535,28 +486,11 @@ module.exports = async function (options) {
   return { allPackages, desynced, updated: true, target: action };
 };
 
-// Helper to explain a Socket risk-block after stale copies were already removed.
-// Deliberately does NOT reinstall the removed copies — that would silently
-// bypass the block Socket just raised; removed is safer than stale-and-risky.
 function reportSocketBlock(e, retryCommand) {
-  const flaggedPackages = e.flaggedPackages || [];
-
-  if (flaggedPackages.length > 0) {
-    logger.log('');
-    logger.error('Socket flagged the following dependencies:');
-    flaggedPackages.forEach(pkg => logger.error(`  • ${pkg}`));
-
-    const flaggedNames = flaggedPackages.map(pkg => pkg.replace(/@[^@]+$/, ''));
-    logger.log('');
-    logger.log('If these are fixable CVEs in transitive deps pinned by package-lock.json, re-resolve them with:');
-    logger.log(logger.format.cyan(`  socket npm update ${flaggedNames.join(' ')}`));
-  }
-
   logger.log('');
-  logger.log('To retry with Socket protection bypassed:');
+  logger.log('Install blocked. See the output above for details.');
+  logger.log('To retry without firewall protection:');
   logger.log(logger.format.cyan(`  ${retryCommand}`));
-  logger.log('');
-  logger.log('The risky copies stay removed from node_modules (safer than leaving stale versions) and will show as missing until reinstalled.');
 }
 
 // Helper to report packages that npm claimed to install but didn't physically land.

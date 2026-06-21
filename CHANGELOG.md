@@ -15,6 +15,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [2.1.7] - 2026-06-21
+### Changed
+- Migrated supply-chain protection from Socket CLI (`@socketsecurity/cli`) to Socket Firewall (`sfw`). Install-time wrapping now uses `sfw` as a network proxy — blocks confirmed malware, allows everything else through. Falls back to plain npm if `sfw` isn't installed.
+- `npu audit` now uses `socket npm audit` when Socket CLI is installed, falls back to `npm audit` with a suggestion to install Socket CLI for deeper analysis.
+- Simplified error handling in `npu install` and `npu out` — removed Socket-specific output parsing (flagged packages, risk tracing) since `sfw` handles blocking at the network level.
+
+### Added
+- `test/test-socket.js` — 8 tests covering `isAvailable()`, `check()`, `wrap()`, and `audit()` for the sfw integration. Total: 140 tests.
+
+---
 ## [2.1.6] - 2026-06-17
 ### Fixed
 - `npu outdated` no longer falsely flags minor-only version bumps as breaking changes (e.g. `electron-builder` 26.8.1 → 26.15.3 was incorrectly showing ⚠). The check now compares actual semver major version numbers instead of relying on ncu tier comparison, which silently broke when ncu omitted a package from its minor tier.
