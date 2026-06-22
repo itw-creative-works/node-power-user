@@ -10,6 +10,7 @@ const ALIASES = {
   global: ['-g', '--global'],
   audit: ['--audit'],
   install: ['-i', '--install', 'i'],
+  npx: ['--npx'],
   open: ['--open', 'repo', '--repo'],
   outdated: ['-o', 'out', '--outdated', '-u', '--update', 'up', 'update'],
   packages: ['-p', 'pack', '--packages'],
@@ -46,6 +47,10 @@ function resolveCommand(options) {
 function Main() {}
 
 Main.prototype.process = async function (options) {
+  // Prevent recursion: zsh/PATH wrappers route npm/npx → npu. When npu
+  // spawns subprocesses (sfw, npm, npx), they must NOT loop back to npu.
+  process.env._NPU_GUARD = '1';
+
   // Fix options
   options = options || {};
   options._ = options._ || [];

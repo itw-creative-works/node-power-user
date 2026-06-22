@@ -15,6 +15,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [2.1.8] - 2026-06-22
+### Added
+- `npu npx` command — wraps `npx` with Socket Firewall (`sfw`) protection, same as `npu install` does for `npm install`. Usage: `npu npx create-react-app my-app`.
+- `_NPU_GUARD` env var set at process startup (`cli.js`) — prevents recursion when zsh/PATH wrappers route `npm`/`npx` back to npu in subprocesses.
+- CLI alias `--npx` for the new npx command.
+- CLI routing test for `npx` positional command resolution.
+
+---
 ## [2.1.7] - 2026-06-21
 ### Changed
 - Migrated supply-chain protection from Socket CLI (`@socketsecurity/cli`) to Socket Firewall (`sfw`). Install-time wrapping now uses `sfw` as a network proxy — blocks confirmed malware, allows everything else through. Falls back to plain npm if `sfw` isn't installed.

@@ -83,6 +83,10 @@ describe('CLI routing', () => {
       assert.equal(resolveCommand({ _: ['push'] }), 'sync');
     });
 
+    it('should resolve "npx" to npx', () => {
+      assert.equal(resolveCommand({ _: ['npx'] }), 'npx');
+    });
+
     it('should pass through unknown commands', () => {
       assert.equal(resolveCommand({ _: ['unknown-command'] }), 'unknown-command');
     });
