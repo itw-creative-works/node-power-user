@@ -15,6 +15,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [2.2.1] - 2026-06-30
+### Fixed
+- `npu npx` now gives a useful error when the binary isn't found locally instead of a generic "Command blocked" message. Detects when the binary is defined in the project's own `bin` field and suggests running it directly.
+
+---
 ## [2.2.0] - 2026-06-29
 ### Added
 - **Released column** in `npu out` / `npu update` table — shows each package's latest version publish date and days since (e.g. `2026-06-24 (5d)`). Fetched in parallel from the npm registry via `npm view <pkg> time --json`.
