@@ -341,6 +341,237 @@ describe('outdated command', () => {
   });
 
   // ═══════════════════════════════════════════════════════════════════
+  //  minAge configuration (--min-age flag parsing)
+  // ═══════════════════════════════════════════════════════════════════
+  describe('minAge configuration', () => {
+    function parseMinAge(optionsMinAge) {
+      return optionsMinAge != null ? Number(optionsMinAge) : 7;
+    }
+
+    it('should default to 7 when not provided', () => {
+      assert.equal(parseMinAge(undefined), 7);
+    });
+
+    it('should default to 7 when null', () => {
+      assert.equal(parseMinAge(null), 7);
+    });
+
+    it('should accept 0 (disable age filtering)', () => {
+      assert.equal(parseMinAge(0), 0);
+    });
+
+    it('should accept custom values', () => {
+      assert.equal(parseMinAge(14), 14);
+    });
+
+    it('should accept string numbers from CLI args', () => {
+      assert.equal(parseMinAge('30'), 30);
+    });
+
+    it('should return NaN for non-numeric strings (graceful degradation)', () => {
+      assert.ok(isNaN(parseMinAge('abc')));
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  tooNew package filtering (--min-age auto-skip during updates)
+  //
+  //  During patch/minor/major updates, packages whose target version
+  //  was published < minAge days ago are skipped — UNLESS the version
+  //  is already installed (no new code to download).
+  // ═══════════════════════════════════════════════════════════════════
+  describe('tooNew package filtering', () => {
+    function filterTooNew(packages, upgrades, minAge) {
+      return packages
+        .filter(pkg => pkg.daysSincePublish != null && pkg.daysSincePublish < minAge)
+        .filter(pkg => upgrades[pkg.name] && pkg.installedVersion !== version.clean(upgrades[pkg.name]))
+        .map(pkg => pkg.name);
+    }
+
+    const upgrades = {
+      'nanoid': '^5.1.16',
+      'uuid': '^14.0.1',
+      'chalk': '^5.6.2',
+    };
+
+    it('should skip packages published < minAge days ago', () => {
+      const packages = [
+        { name: 'nanoid', daysSincePublish: 5, installedVersion: '5.1.11' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 7), ['nanoid']);
+    });
+
+    it('should NOT skip packages published >= minAge days ago', () => {
+      const packages = [
+        { name: 'uuid', daysSincePublish: 9, installedVersion: '14.0.0' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 7), []);
+    });
+
+    it('should NOT skip packages already installed at the target version', () => {
+      const packages = [
+        { name: 'nanoid', daysSincePublish: 2, installedVersion: '5.1.16' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 7), []);
+    });
+
+    it('should NOT skip packages when daysSincePublish is null', () => {
+      const packages = [
+        { name: 'nanoid', daysSincePublish: null, installedVersion: '5.1.11' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 7), []);
+    });
+
+    it('should NOT skip packages when daysSincePublish is undefined', () => {
+      const packages = [
+        { name: 'nanoid', installedVersion: '5.1.11' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 7), []);
+    });
+
+    it('should NOT skip any packages when minAge is 0', () => {
+      const packages = [
+        { name: 'nanoid', daysSincePublish: 0, installedVersion: '5.1.11' },
+        { name: 'uuid', daysSincePublish: 1, installedVersion: '14.0.0' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 0), []);
+    });
+
+    it('should NOT skip packages not in the upgrades list', () => {
+      const packages = [
+        { name: 'not-in-upgrades', daysSincePublish: 2, installedVersion: '1.0.0' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 7), []);
+    });
+
+    it('should handle mixed packages — skip only the too-new ones', () => {
+      const packages = [
+        { name: 'nanoid', daysSincePublish: 5, installedVersion: '5.1.11' },
+        { name: 'uuid', daysSincePublish: 9, installedVersion: '14.0.0' },
+        { name: 'chalk', daysSincePublish: 294, installedVersion: '5.3.0' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 7), ['nanoid']);
+    });
+
+    it('should respect custom minAge threshold', () => {
+      const packages = [
+        { name: 'nanoid', daysSincePublish: 5, installedVersion: '5.1.11' },
+        { name: 'uuid', daysSincePublish: 9, installedVersion: '14.0.0' },
+        { name: 'chalk', daysSincePublish: 294, installedVersion: '5.3.0' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 14), ['nanoid', 'uuid']);
+    });
+
+    it('should skip all packages with high minAge', () => {
+      const packages = [
+        { name: 'nanoid', daysSincePublish: 5, installedVersion: '5.1.11' },
+        { name: 'uuid', daysSincePublish: 9, installedVersion: '14.0.0' },
+        { name: 'chalk', daysSincePublish: 294, installedVersion: '5.3.0' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 365), ['nanoid', 'uuid', 'chalk']);
+    });
+
+    it('should NOT skip at exact boundary (daysSincePublish === minAge)', () => {
+      const packages = [
+        { name: 'nanoid', daysSincePublish: 7, installedVersion: '5.1.11' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 7), []);
+    });
+
+    it('should skip packages published today (0d)', () => {
+      const packages = [
+        { name: 'nanoid', daysSincePublish: 0, installedVersion: '5.1.11' },
+      ];
+      assert.deepEqual(filterTooNew(packages, upgrades, 7), ['nanoid']);
+    });
+
+    it('should handle empty packages list', () => {
+      assert.deepEqual(filterTooNew([], upgrades, 7), []);
+    });
+
+    it('should handle empty upgrades list', () => {
+      const packages = [
+        { name: 'nanoid', daysSincePublish: 2, installedVersion: '5.1.11' },
+      ];
+      assert.deepEqual(filterTooNew(packages, {}, 7), []);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  Release date display logic (⚠ warning threshold)
+  // ═══════════════════════════════════════════════════════════════════
+  describe('release date display', () => {
+    function shouldWarn(daysSincePublish, minAge) {
+      return daysSincePublish != null && daysSincePublish < minAge;
+    }
+
+    it('should warn when published < minAge days ago', () => {
+      assert.equal(shouldWarn(3, 7), true);
+    });
+
+    it('should NOT warn when published >= minAge days ago', () => {
+      assert.equal(shouldWarn(10, 7), false);
+    });
+
+    it('should NOT warn when daysSincePublish is null', () => {
+      assert.equal(shouldWarn(null, 7), false);
+    });
+
+    it('should NOT warn when daysSincePublish is undefined', () => {
+      assert.equal(shouldWarn(undefined, 7), false);
+    });
+
+    it('should NOT warn when minAge is 0 (all ages OK)', () => {
+      assert.equal(shouldWarn(0, 0), false);
+    });
+
+    it('should warn for 0d old with default minAge', () => {
+      assert.equal(shouldWarn(0, 7), true);
+    });
+
+    it('should NOT warn at exact boundary (7d, minAge 7)', () => {
+      assert.equal(shouldWarn(7, 7), false);
+    });
+
+    it('should respect custom minAge', () => {
+      assert.equal(shouldWarn(10, 14), true);
+      assert.equal(shouldWarn(10, 10), false);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  daysSincePublish calculation
+  // ═══════════════════════════════════════════════════════════════════
+  describe('daysSincePublish calculation', () => {
+    function calcDays(publishDateISO, now) {
+      const date = new Date(publishDateISO);
+      return Math.floor((now - date.getTime()) / (1000 * 60 * 60 * 24));
+    }
+
+    const now = new Date('2026-06-29T12:00:00Z').getTime();
+
+    it('should return 0 for same-day publish', () => {
+      assert.equal(calcDays('2026-06-29T08:00:00Z', now), 0);
+    });
+
+    it('should return 1 for yesterday publish', () => {
+      assert.equal(calcDays('2026-06-28T08:00:00Z', now), 1);
+    });
+
+    it('should return 7 for a week ago', () => {
+      assert.equal(calcDays('2026-06-22T12:00:00Z', now), 7);
+    });
+
+    it('should return 365 for a year ago', () => {
+      assert.equal(calcDays('2025-06-29T12:00:00Z', now), 365);
+    });
+
+    it('should floor partial days', () => {
+      assert.equal(calcDays('2026-06-28T20:00:00Z', now), 0);
+    });
+  });
+
+  // ═══════════════════════════════════════════════════════════════════
   //  Integration: run outdated against this project (live)
   // ═══════════════════════════════════════════════════════════════════
   describe('integration (live)', function () {
@@ -406,6 +637,26 @@ describe('outdated command', () => {
       for (const d of result.desynced) {
         assert.equal(typeof d.loc, 'string', 'loc should be a string');
         assert.ok(d.lockfileVersion, 'lockfileVersion should exist');
+      }
+    });
+
+    it('should include publishedDate and daysSincePublish for packages with latestVersion', () => {
+      for (const [name, pkg] of result.allPackages) {
+        if (pkg.latestVersion && pkg.publishedDate) {
+          assert.ok(pkg.publishedDate instanceof Date, `${name} publishedDate should be a Date`);
+          assert.equal(typeof pkg.daysSincePublish, 'number', `${name} daysSincePublish should be a number`);
+          assert.ok(pkg.daysSincePublish >= 0, `${name} daysSincePublish should be >= 0`);
+        }
+      }
+    });
+
+    it('daysSincePublish should be consistent with publishedDate', () => {
+      for (const [name, pkg] of result.allPackages) {
+        if (pkg.publishedDate && pkg.daysSincePublish != null) {
+          const expected = Math.floor((Date.now() - pkg.publishedDate.getTime()) / (1000 * 60 * 60 * 24));
+          assert.ok(Math.abs(pkg.daysSincePublish - expected) <= 1,
+            `${name} daysSincePublish (${pkg.daysSincePublish}) should be within 1 day of calculated (${expected})`);
+        }
       }
     });
   });

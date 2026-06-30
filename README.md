@@ -107,8 +107,12 @@ npu out --heal        # skip the menu: reinstall copies that don't match package
 npu out --sync        # skip the menu: install packages to match package.json
 npu out -r            # skip the menu: reconcile package.json to installed versions
 npu out -P | -m | -M  # skip the menu: apply patch / minor / major updates
+npu out --min-age 14  # only update packages published ≥ 14 days ago (default: 7)
+npu out --min-age 0   # disable age filtering — update everything
 npu out --force       # bypass Socket protection
 ```
+
+The table includes a **Released** column showing when each package's latest version was published and how many days ago. Packages published less than `--min-age` days ago (default: 7) are flagged with ⚠ and **automatically skipped** during updates — unless that version is already installed. This protects against supply chain attacks that target brand-new releases.
 
 Every run starts with an integrity check: npu compares what `node_modules/.package-lock.json` claims is installed against the packages physically on disk — including transitive deps the table can't show. Desynced copies (stale or partially-extracted installs, typically left behind by an interrupted or Socket-blocked install) make npm silently no-op (`npm install` trusts the lockfile over the disk), so npu warns about them and offers to heal.
 

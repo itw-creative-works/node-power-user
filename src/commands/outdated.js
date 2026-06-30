@@ -51,6 +51,8 @@ module.exports = async function (options) {
     logger.log(chalk.dim(`Ignoring: ${ignoreList.join(', ')}`));
   }
 
+  const minAge = options.minAge != null ? Number(options.minAge) : 7;
+
   // Run ncu for patch, minor, and latest (include peer dependencies)
   const ncuOptions = {
     packageFile: packageJsonPath,
@@ -108,6 +110,25 @@ module.exports = async function (options) {
     }
   }
 
+  // Fetch publish dates for packages with updates
+  if (allPackages.size > 0) {
+    await Promise.all([...allPackages.values()].map(async (pkg) => {
+      if (!pkg.latestVersion) return;
+
+      try {
+        const output = await execute(`npm view ${pkg.name} time --json`, { log: false });
+        const times = JSON.parse(output);
+        const publishDate = times[pkg.latestVersion];
+        if (publishDate) {
+          pkg.publishedDate = new Date(publishDate);
+          pkg.daysSincePublish = Math.floor((Date.now() - pkg.publishedDate.getTime()) / (1000 * 60 * 60 * 24));
+        }
+      } catch {
+        // Release date is supplementary — skip on failure
+      }
+    }));
+  }
+
   // Display unified table
   if (allPackages.size === 0 && desynced.length === 0) {
     logger.log(logger.format.green('\nAll packages are up to date!'));
@@ -115,7 +136,7 @@ module.exports = async function (options) {
   }
 
   if (allPackages.size > 0) {
-    const dataTable = [['Package', 'package.json', 'Installed', 'Latest', 'Type']];
+    const dataTable = [['Package', 'package.json', 'Installed', 'Latest', 'Released', 'Type']];
 
     for (const pkg of allPackages.values()) {
       const pkgVersionColor = pkg.hasDiscrepancy ? 'red' : 'green';
@@ -134,21 +155,34 @@ module.exports = async function (options) {
         latestDisplay = chalk.dim('-');
       }
 
+      let releasedDisplay;
+      if (pkg.daysSincePublish != null) {
+        const dateStr = pkg.publishedDate.toISOString().split('T')[0];
+        const display = `${dateStr} (${pkg.daysSincePublish}d)`;
+        releasedDisplay = pkg.daysSincePublish < minAge ? chalk.magenta(display + ' ⚠') : chalk.dim(display);
+      } else {
+        releasedDisplay = chalk.dim('-');
+      }
+
       dataTable.push([
         pkg.name,
         chalk[pkgVersionColor](pkg.packageVersion),
         chalk.green(pkg.installedVersion),
         latestDisplay,
+        releasedDisplay,
         pkg.type,
       ]);
     }
 
     console.log(table(dataTable));
 
-    // Only show legend if there are major updates
     const hasMajorUpdates = [...allPackages.values()].some(pkg => pkg.hasMajorUpdate);
-    if (hasMajorUpdates) {
-      logger.log(chalk.dim('Legend: ') + chalk.magenta('⚠ = major version (breaking changes)'));
+    const hasRecentReleases = [...allPackages.values()].some(pkg => pkg.daysSincePublish != null && pkg.daysSincePublish < minAge);
+    if (hasMajorUpdates || hasRecentReleases) {
+      const legends = [];
+      if (hasMajorUpdates) legends.push(chalk.magenta('⚠ = major version (breaking changes)'));
+      if (hasRecentReleases) legends.push(chalk.magenta(`⚠ = published < ${minAge} days ago (auto-skipped)`));
+      logger.log(chalk.dim('Legend: ') + legends.join(chalk.dim(' · ')));
     }
   }
 
@@ -411,9 +445,32 @@ module.exports = async function (options) {
   }
 
   // Handle patch/minor/major updates
-  const upgrades = action === 'patch' ? patchUpgrades
+  const allUpgrades = action === 'patch' ? patchUpgrades
     : action === 'minor' ? minorUpgrades
     : latestUpgrades;
+
+  // Filter out packages whose target version was published too recently
+  const tooNew = [...allPackages.values()]
+    .filter(pkg => pkg.daysSincePublish != null && pkg.daysSincePublish < minAge)
+    .filter(pkg => allUpgrades[pkg.name] && pkg.installedVersion !== version.clean(allUpgrades[pkg.name]))
+    .map(pkg => pkg.name);
+
+  const upgrades = {};
+  for (const [name, ver] of Object.entries(allUpgrades)) {
+    if (!tooNew.includes(name)) {
+      upgrades[name] = ver;
+    }
+  }
+
+  if (tooNew.length > 0) {
+    logger.warn(`\nSkipped ${tooNew.length} package(s) published < ${minAge} days ago:`);
+    for (const name of tooNew) {
+      const pkg = allPackages.get(name);
+      logger.warn(`  ${chalk.magenta('⚠')} ${name}@${pkg.latestVersion} (${pkg.daysSincePublish}d old)`);
+    }
+    logger.log(chalk.dim(`Use --min-age 0 to include all packages regardless of age.`));
+  }
+
   const packageNames = Object.keys(upgrades);
 
   if (packageNames.length === 0) {
@@ -428,10 +485,12 @@ module.exports = async function (options) {
   const packageJsonBackup = jetpack.read(packageJsonPath);
   const lockfileBackup = jetpack.read(lockfilePath);
 
+  const rejectList = [...ignoreList, ...tooNew];
   await ncu.run({
     packageFile: packageJsonPath,
     target: action,
     upgrade: true,
+    ...(rejectList.length > 0 ? { reject: rejectList } : {}),
   });
 
   logger.log(logger.format.green(`\nUpdated ${packageNames.length} package(s) in package.json.`));

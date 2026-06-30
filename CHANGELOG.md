@@ -15,6 +15,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [2.2.0] - 2026-06-29
+### Added
+- **Released column** in `npu out` / `npu update` table — shows each package's latest version publish date and days since (e.g. `2026-06-24 (5d)`). Fetched in parallel from the npm registry via `npm view <pkg> time --json`.
+- **`--min-age <days>` flag** (default: 7) — packages whose latest version was published less than this many days ago are flagged with magenta ⚠ in the table and **automatically skipped** during patch/minor/major updates, unless that version is already installed. Use `--min-age 0` to disable age filtering.
+- Skip logging — when packages are skipped for being too new, each is listed with its version and age, plus a hint to override with `--min-age 0`.
+- Legend auto-expands to include `⚠ = published < N days ago (auto-skipped)` when recent releases are present.
+- 35 new tests covering minAge parsing, tooNew filtering (14 scenarios), release date display logic, daysSincePublish calculation, and live integration validation. Total: 176 tests.
+
+---
 ## [2.1.8] - 2026-06-22
 ### Added
 - `npu npx` command — wraps `npx` with Socket Firewall (`sfw`) protection, same as `npu install` does for `npm install`. Usage: `npu npx create-react-app my-app`.
