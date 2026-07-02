@@ -15,6 +15,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [2.3.0] - 2026-07-01
+### Added
+- **Local-binary fast path for `npu npx`** — when the binary already exists in `node_modules/.bin/`, the command runs plain (nothing is downloaded, so the firewall has nothing to protect): no sfw startup cost, live output, exact exit codes. `--package`/`-p` runs are excluded — they download regardless of local binaries, so they always stay behind the firewall.
+- **`npu npm <args...>`** — sfw-wrapped raw npm passthrough. Used by the shell shims to protect `npm exec|create|init` WITHOUT rewriting their semantics (`npm create X` maps to package `create-X`; the old routing turned it into `npx X`, which runs the wrong package entirely).
+- Bare flag queries (`npx --version`, `npx --help`) pass through silently — no download, no firewall, no wrapper output.
+- 40 new tests (raw-arg parsing, block-output detection, wrap failure classification, live-streaming timing, end-to-end bin runs for npx and npm). Total: 216 tests.
+
+### Changed
+- **`npu npx` and `npu install` pass all trailing flags through to the child** — yargs previously consumed them (`npu npx mgr test --extended` silently dropped `--extended`; `npu i pkg --legacy-peer-deps` lost the flag npm needed). install's curated `-D`/`-E`/`-g` whitelist is gone — every npm flag flows through natively. npu's own `--force` now goes BEFORE the command token: `npu --force npx <cmd>`, `npu --force i <pkg>`.
+- Commands wrapped with Socket Firewall now **stream output live** (with color preserved on TTYs via `FORCE_COLOR`) instead of buffering everything invisibly until the process exits.
+- Child exit codes are **propagated** — `npu npx` / `npu install` / `npu npm` exit non-zero when the wrapped command fails (previously always exited 0, masking failures in scripts/CI).
+
+### Fixed
+- **Failing commands are no longer misreported as firewall blocks.** Any non-zero exit under sfw used to print "Command blocked by Socket Firewall" — even a failing test suite. A block is now only reported when sfw's block report actually appears in the output (detected via sfw-free's report markers: `blocked N package:`, `Blocked Packages (N)`, `SUMMARY: N item(s) blocked`). Ordinary failures print `Command failed (exit N)`.
+- On failure, captured stdout is no longer discarded (the old dump-after-exit path printed only stderr when the command failed).
+- README drift: the install section pointed at `@socketsecurity/cli` (npu actually checks for `sfw`) and claimed a post-install audit that doesn't run.
+
+---
 ## [2.2.1] - 2026-06-30
 ### Fixed
 - `npu npx` now gives a useful error when the binary isn't found locally instead of a generic "Command blocked" message. Detects when the binary is defined in the project's own `bin` field and suggests running it directly.

@@ -1,6 +1,15 @@
 #!/usr/bin/env node
 const { hideBin } = require('yargs/helpers');
-const argv = require('yargs')(hideBin(process.argv)).parseSync();
+const rawArgs = hideBin(process.argv);
+
+// help(false)/version(false): yargs must not intercept --help/--version —
+// commands like `npu npx <cmd> --help` need those flags to reach the child.
+// boolean('force'): without it, `npu --force npx ...` parses as --force=npx
+// and swallows the command token.
+const argv = require('yargs')(rawArgs).help(false).version(false).boolean('force').parseSync();
+
+// Commands that pass args through to a child (npx) re-parse from raw argv
+argv.raw = rawArgs;
 
 // --cwd / -C: run as if invoked from a different directory
 const targetDir = argv.cwd || argv.C;

@@ -41,42 +41,72 @@ async function check(options) {
   return available;
 }
 
-// Wrap an npm command with sfw if available
+// Markers Socket Firewall prints when it ACTUALLY blocks something (sourced
+// from the sfw-free v1.12.0 report output). sfw passes the wrapped command's
+// exit code through, so a non-zero exit alone does NOT mean a block — a
+// failing test suite exits non-zero too.
+const BLOCK_MARKERS = [
+  /blocked [1-9]\d* packages?:/i,                  // " - blocked 1 package: <purl> - <reason>"
+  /Blocked (?:Packages|Hostnames) \([1-9]\d*\)/i,  // report section headers
+  /SUMMARY: [1-9]\d* item\(s\) blocked/i,          // report summary line
+];
+
+// Check command output for sfw's block report
+function isBlockOutput(output) {
+  return BLOCK_MARKERS.some((marker) => marker.test(output || ''));
+}
+
+// Wrap a command with sfw if available; force (or no sfw) runs it plain.
+// Output always streams live. Throws on non-zero exit with:
+//   err.reason — 'sfw-blocked' (real firewall block) | 'command-failed'
+//   err.code   — the child's exit code
 async function wrap(command, options) {
   options = options || {};
 
-  const available = await isFirewallAvailable();
+  const wrapped = !options.force && await isFirewallAvailable();
+  const finalCommand = wrapped ? `sfw ${command}` : command;
 
-  // If firewall is not installed or --force is used, run plain npm
-  if (!available || options.force) {
-    try {
-      await execute(command, { log: true });
-    } catch (e) {
-      const err = new Error('npm install failed. See the error output above.');
-      err.reason = 'npm-failed';
-      throw err;
-    }
-    return;
+  let output = '';
+  let exitCode = null;
+
+  const executeOptions = { log: !wrapped, config: {} };
+
+  // The wrapped child runs on pipes (not a TTY), which disables color in most
+  // CLIs — restore it, but only when npu itself is printing to a real TTY
+  if (wrapped && process.stdout.isTTY) {
+    executeOptions.config.env = { ...process.env, FORCE_COLOR: '1' };
   }
-
-  // Run with Socket Firewall
-  let output;
-  let exitedWithError = false;
 
   try {
-    output = await execute(`sfw ${command}`, { log: false });
+    await execute(finalCommand, executeOptions, (child) => {
+      // Echo piped output through LIVE (and capture it for block detection)
+      // instead of letting it buffer invisibly until the process exits
+      if (child.stdout) {
+        child.stdout.on('data', (chunk) => {
+          output += chunk.toString();
+          process.stdout.write(chunk);
+        });
+      }
+
+      if (child.stderr) {
+        child.stderr.on('data', (chunk) => {
+          output += chunk.toString();
+          process.stderr.write(chunk);
+        });
+      }
+
+      child.on('close', (code) => {
+        exitCode = code;
+      });
+    });
   } catch (e) {
-    output = e.message || '';
-    exitedWithError = true;
-  }
+    const blocked = wrapped && isBlockOutput(output);
+    const err = blocked
+      ? new Error('Blocked by Socket Firewall — it flagged a risky package.')
+      : new Error(`Command failed with exit code ${exitCode === null ? 1 : exitCode}.`);
 
-  if (output) {
-    console.log(output);
-  }
-
-  if (exitedWithError) {
-    const err = new Error('Install blocked — Socket Firewall may have flagged a risky package.');
-    err.reason = 'sfw-blocked';
+    err.reason = blocked ? 'sfw-blocked' : 'command-failed';
+    err.code = exitCode === null ? 1 : exitCode;
     throw err;
   }
 }
@@ -90,4 +120,5 @@ module.exports = {
   check,
   wrap,
   audit,
+  isBlockOutput,
 };

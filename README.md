@@ -74,23 +74,50 @@ npu global
 ```
 
 ### Install Packages
-Install packages with supply chain protection via [Socket](https://socket.dev/). Every install is wrapped with Socket to detect malicious or compromised packages — including transitive dependencies — before they're added to your project. After install, a full `socket npm audit` runs against your entire dependency tree.
+Install packages with supply chain protection via [Socket Firewall](https://socket.dev/) (`sfw`). Every install is wrapped with sfw, which blocks malicious or compromised packages — including transitive dependencies — before they're downloaded.
 
 ```shell
 npu install
 npu i <package>
-npu i <package> --save-dev
-npu i <package> --save-exact
+npu i <package> --save-dev --legacy-peer-deps
 ```
 
-**If Socket CLI is not installed, `npu install` will refuse to run.** Install it globally to enable protection:
+**Every npm flag passes through verbatim** (`--save-dev`, `--save-exact`, `--legacy-peer-deps`, `--dry-run`, ...) — npu doesn't maintain a whitelist.
+
+**If Socket Firewall is not installed, `npu install` will refuse to run.** Install it globally to enable protection:
 ```shell
-npm install -g @socketsecurity/cli --save-exact
+npm install -g sfw
 ```
 
-Use `--force` to bypass Socket protection (not recommended):
+Use `--force` (before the command) to bypass Socket protection (not recommended):
 ```shell
-npu i <package> --force
+npu --force i <package>
+```
+
+### Run Packages (npx)
+Run a package binary with supply chain protection. When the binary would be **downloaded from npm**, the run is wrapped with Socket Firewall. When it's **already installed locally** (`node_modules/.bin/`), it runs directly — nothing is downloaded, so there's nothing to protect and no firewall overhead.
+```shell
+npu npx <command> [args...]
+```
+
+* Output streams **live** in both modes.
+* The child command's exit code is **propagated** (CI-safe).
+* **Everything after the command passes through to the child** — e.g. `npu npx rimraf dist --force` sends `--force` to rimraf.
+* npu's own flags go **before** the `npx` token:
+```shell
+npu --force npx <command>   # bypass Socket protection (not recommended)
+```
+
+A run is only reported as **blocked** when Socket Firewall actually blocked a download — an ordinary failure (like a failing test suite) is reported as a plain command failure with its exit code.
+
+Two edge behaviors: `--package`/`-p` runs always stay behind the firewall (they download regardless of local binaries), and bare flag queries (`npx --version`, `npx --help`) pass through silently with no wrapper output at all.
+
+### Wrapped npm (exec / create / init)
+Run any npm command wrapped with Socket Firewall, args untouched. This is what the shell shims use to protect `npm exec|create|init` without rewriting their semantics — `npm create X` maps to package `create-X`, so it must never be turned into `npx X`.
+```shell
+npu npm <args...>
+npu npm create vite my-app
+npu --force npm <args...>   # bypass Socket protection (not recommended)
 ```
 
 ### Audit

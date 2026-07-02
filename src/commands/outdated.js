@@ -331,7 +331,7 @@ module.exports = async function (options) {
         jetpack.write(lockfilePath, lockfileBackup);
       }
 
-      if (e.reason === 'npm-failed') {
+      if (e.reason === 'command-failed') {
         logger.log('');
         logger.log('Fix the npm error above and re-run with --heal — the removed copies will reinstall then.');
         return { allPackages, desynced, healed: false };
@@ -387,7 +387,7 @@ module.exports = async function (options) {
         jetpack.write(lockfilePath, lockfileBackup);
       }
 
-      if (e.reason === 'npm-failed') {
+      if (e.reason === 'command-failed') {
         logger.log('');
         logger.log('Fix the npm error above and retry.');
         return { allPackages, desynced, synced: false };
@@ -515,7 +515,7 @@ module.exports = async function (options) {
     logger.log('package.json and package-lock.json have been restored to their original state.');
     logger.log('The removed package copies will show as missing in the next check until reinstalled.');
 
-    if (e.reason === 'npm-failed') {
+    if (e.reason === 'command-failed') {
       logger.log('');
       logger.log('Fix the npm error above (e.g. resolve peer-dep conflicts) and retry.');
       return { allPackages, desynced, updated: false, target: action };
