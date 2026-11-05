@@ -16,9 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 ## [Unreleased]
+
+## [2.3.1] - 2026-11-04
+
 ### Fixed
-- [#1](../../issues/1) - On Windows, `npu install`, `npu npm`, `npu npx` and `npu out` no longer hang: the command run through Socket Firewall now shares npu's stdin instead of a pipe npu never closed.
-- [#1](../../issues/1) - On Windows, an argument with a backslash, tilde or space now reaches npm intact: npu double-quotes it for cmd.exe instead of single-quoting it.
+- [#1](../../issues/1) [`641b359`](../../commit/641b359) Thanks [@ianwieds]! - On Windows, `npu install`, `npu npm`, `npu npx` and `npu out` no longer hang: the command run through Socket Firewall now shares npu's stdin instead of a pipe npu never closed.
+- [#1](../../issues/1) [`641b359`](../../commit/641b359) Thanks [@ianwieds]! - On Windows, an argument with a backslash, tilde or space now reaches npm intact: npu double-quotes it for cmd.exe instead of single-quoting it.
 
 ---
 ## [2.3.0] - 2026-07-01
@@ -171,3 +174,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.0.0] - 2024-06-19
 ### Added
 - Initial release of the project 🚀
+
+---
+
+## Contributors
+
+- [@ianwieds]
+
+[@ianwieds]: https://github.com/ianwieds
