@@ -1,5 +1,7 @@
 const assert = require('assert');
 const { execute } = require('node-powertools');
+const { spawn } = require('child_process');
+const path = require('path');
 
 describe('lib/socket (Socket Firewall wrapper)', () => {
   let socket;
@@ -151,6 +153,40 @@ describe('lib/socket (Socket Firewall wrapper)', () => {
       const resolvedAt = Date.now();
       assert.ok(markerAt > 0, 'marker never appeared on stdout');
       assert.ok(resolvedAt - markerAt >= 1000, `marker appeared only ${resolvedAt - markerAt}ms before resolve — output was buffered, not streamed`);
+    });
+  });
+
+  describe('wrap() stdin', function () {
+    this.timeout(20000);
+
+    // The wrapped child reads stdin to its end, as `sfw npm install` does on
+    // Windows. npu runs with stdin closed, so a child that shares it exits;
+    // one handed a pipe npu never closes waits forever.
+    function wrapWithClosedStdin(force) {
+      const child = `node -e \\"process.stdin.resume(); process.stdin.on('end', () => process.exit(0))\\"`;
+      const script = `require('./dist/lib/socket').wrap("${child}", { force: ${force} }).then(() => process.exit(0), () => process.exit(1))`;
+
+      return new Promise((resolve) => {
+        const npu = spawn(process.execPath, ['-e', script], {
+          cwd: path.join(__dirname, '..'),
+          stdio: ['ignore', 'ignore', 'inherit'],
+          env: { ...process.env, SFW_SKIP_UPDATE_CHECK: '1' },
+        });
+        const timer = setTimeout(() => { npu.kill(); resolve('timed out'); }, 10000);
+        npu.on('close', (code) => { clearTimeout(timer); resolve(code); });
+      });
+    }
+
+    it('should hand the child npu\'s own stdin (force path)', async () => {
+      assert.strictEqual(await wrapWithClosedStdin(true), 0);
+    });
+
+    it('should hand the child npu\'s own stdin (sfw path)', async () => {
+      const available = await socket.isAvailable();
+      if (!available) {
+        return; // skip if sfw not installed
+      }
+      assert.strictEqual(await wrapWithClosedStdin(false), 0);
     });
   });
 

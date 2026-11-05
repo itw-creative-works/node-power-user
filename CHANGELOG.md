@@ -15,6 +15,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `Security` in case of vulnerabilities.
 
 ---
+## [Unreleased]
+### Fixed
+- [#1](../../issues/1) - On Windows, `npu install`, `npu npm`, `npu npx` and `npu out` no longer hang: the command run through Socket Firewall now shares npu's stdin instead of a pipe npu never closed.
+- [#1](../../issues/1) - On Windows, an argument with a backslash, tilde or space now reaches npm intact: npu double-quotes it for cmd.exe instead of single-quoting it.
+
+---
 ## [2.3.0] - 2026-07-01
 ### Added
 - **Local-binary fast path for `npu npx`** — when the binary already exists in `node_modules/.bin/`, the command runs plain (nothing is downloaded, so the firewall has nothing to protect): no sfw startup cost, live output, exact exit codes. `--package`/`-p` runs are excluded — they download regardless of local binaries, so they always stay behind the firewall.

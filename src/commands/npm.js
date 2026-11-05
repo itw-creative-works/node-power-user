@@ -24,7 +24,7 @@ module.exports = async function (options) {
     return;
   }
 
-  const command = `npm ${childArgs.map(npxArgs.quoteArg).join(' ')}`;
+  const command = `npm ${npxArgs.quoteArgs(childArgs)}`;
 
   // Check firewall status upfront (blocks if not installed unless --force)
   await socket.check({ force });

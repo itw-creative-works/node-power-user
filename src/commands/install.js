@@ -43,7 +43,7 @@ module.exports = async function (options) {
     npm.removeInstalledCopies(names);
   }
 
-  const command = `npm install ${childArgs.map(npxArgs.quoteArg).join(' ')}`.trim();
+  const command = `npm install ${npxArgs.quoteArgs(childArgs)}`.trim();
 
   // Check socket status upfront (blocks if not installed unless --force)
   await socket.check({ force });

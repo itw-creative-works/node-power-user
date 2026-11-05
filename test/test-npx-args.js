@@ -104,21 +104,49 @@ describe('lib/npx-args (raw argv parsing for npu npx)', () => {
 
   describe('buildCommand()', () => {
     it('should leave simple args unquoted', () => {
-      assert.strictEqual(npxArgs.buildCommand(['mgr', 'test']), 'npx mgr test');
+      assert.strictEqual(npxArgs.buildCommand(['mgr', 'test'], 'linux'), 'npx mgr test');
     });
 
     it('should quote args containing spaces or shell metacharacters', () => {
       assert.strictEqual(
-        npxArgs.buildCommand(['node', '-e', 'console.log(1 + 1)']),
+        npxArgs.buildCommand(['node', '-e', 'console.log(1 + 1)'], 'linux'),
         `npx node -e 'console.log(1 + 1)'`
       );
     });
 
     it('should escape embedded single quotes', () => {
       assert.strictEqual(
-        npxArgs.buildCommand(['echo', `it's`]),
+        npxArgs.buildCommand(['echo', `it's`], 'linux'),
         `npx echo 'it'\\''s'`
       );
+    });
+
+    it('should double-quote every unsafe arg for cmd.exe on Windows', () => {
+      assert.strictEqual(
+        npxArgs.buildCommand(['npm', 'install', '--prefix', 'C:\\Users\\IWEEDM~1\\g dir', 'sfw'], 'win32'),
+        'npx npm install --prefix "C:\\Users\\IWEEDM~1\\g dir" sfw'
+      );
+    });
+  });
+
+  describe('quoteArg() on Windows', () => {
+    // cmd.exe keeps single quotes as literal text, so Windows args are
+    // double-quoted the way the C runtime reads them back.
+    it('should leave simple args unquoted', () => {
+      assert.strictEqual(npxArgs.quoteArg('@socketsecurity/cli@latest', 'win32'), '@socketsecurity/cli@latest');
+    });
+
+    it('should double-quote a path with backslashes or a tilde', () => {
+      assert.strictEqual(npxArgs.quoteArg('C:\\Users\\IWEEDM~1\\g', 'win32'), '"C:\\Users\\IWEEDM~1\\g"');
+    });
+
+    it('should double-quote args with spaces and keep single quotes as they are', () => {
+      assert.strictEqual(npxArgs.quoteArg(`it's a b`, 'win32'), `"it's a b"`);
+    });
+
+    it('should escape embedded double quotes and a trailing backslash', () => {
+      assert.strictEqual(npxArgs.quoteArg('say "hi"', 'win32'), '"say \\"hi\\""');
+      assert.strictEqual(npxArgs.quoteArg('C:\\dir with space\\', 'win32'), '"C:\\dir with space\\\\"');
     });
   });
 });

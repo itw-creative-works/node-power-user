@@ -69,7 +69,10 @@ async function wrap(command, options) {
   let output = '';
   let exitCode = null;
 
-  const executeOptions = { log: !wrapped, config: {} };
+  // The child shares npu's stdin: a pipe npu never closes leaves `sfw npm
+  // install` waiting forever on Windows, and an install that prompts can read
+  // the terminal. Only stdout/stderr are piped, for the live echo below.
+  const executeOptions = { log: !wrapped, config: wrapped ? { stdio: ['inherit', 'pipe', 'pipe'] } : {} };
 
   // The wrapped child runs on pipes (not a TTY), which disables color in most
   // CLIs — restore it, but only when npu itself is printing to a real TTY
