@@ -1,6 +1,6 @@
 {
   "name": "node-power-user",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "description": "Easy tools for every Node.js developer!",
   "private": false,
   "main": "dist/index.js",

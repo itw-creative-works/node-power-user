@@ -17,8 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ---
 ## [Unreleased]
 
+## [2.3.3] - 2026-11-05
+
 ### Security
-- [#2](../../issues/2) Thanks [@ianwieds]! - `npu sync` now hands git the commit message exactly as typed: a `"`, `$`, a backtick or `&` in it no longer reaches a shell, so a message can no longer run a command. npu runs `git commit` and `git push` as argv calls instead of one shell string.
+- [#2](../../issues/2) [`38fb553`](../../commit/38fb553) Thanks [@ianwieds]! - `npu sync` now hands git the commit message exactly as typed: a `"`, `$`, a backtick or `&` in it no longer reaches a shell, so a message can no longer run a command. npu runs `git commit` and `git push` as argv calls instead of one shell string.
 
 ## [2.3.2] - 2026-11-04
 
