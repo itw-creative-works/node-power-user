@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ---
 ## [Unreleased]
 
+### Fixed
+- [#2](../../issues/2) - `npu install`, `npu npm`, `npu npx` and `npu out` now hand npm or npx each arg exactly as typed, on Windows too: `%VAR%`, `&`, `|`, `<`, `>` and inner quotes no longer reach cmd.exe as shell syntax. npu spawns a bin and its args instead of a shell string.
+- [#2](../../issues/2) - A command run through Socket Firewall no longer hangs on a stdin pipe that never closes, as in Git Bash's mintty. sfw now gets npu's stdin only when it is a terminal or a redirected file; piped input reaches the command only with `--force`.
+
 ## [2.3.1] - 2026-11-04
 
 ### Fixed

@@ -2,6 +2,8 @@ const assert = require('assert');
 const { execute } = require('node-powertools');
 const { spawn } = require('child_process');
 const path = require('path');
+const os = require('os');
+const fs = require('fs');
 
 describe('lib/socket (Socket Firewall wrapper)', () => {
   let socket;
@@ -24,10 +26,9 @@ describe('lib/socket (Socket Firewall wrapper)', () => {
   });
 
   describe('check()', () => {
-    it('should not throw when sfw is available', async () => {
-      const available = await socket.isAvailable();
-      if (!available) {
-        return; // skip if sfw not installed
+    it('should not throw when sfw is available', async function () {
+      if (!await socket.isAvailable()) {
+        this.skip();
       }
       await socket.check();
     });
@@ -41,20 +42,19 @@ describe('lib/socket (Socket Firewall wrapper)', () => {
   describe('wrap()', () => {
     it('should execute a simple command', async () => {
       // Use a harmless command to verify wrap() works
-      await socket.wrap('echo "test"', { force: true });
+      await socket.wrap('node', ['-e', 'console.log("test")'], { force: true });
     });
 
-    it('should prefix sfw when available and not forced', async () => {
-      const available = await socket.isAvailable();
-      if (!available) {
-        return; // skip if sfw not installed
+    it('should prefix sfw when available and not forced', async function () {
+      if (!await socket.isAvailable()) {
+        this.skip();
       }
-      // echo always succeeds — verifies sfw prefix doesn't break execution
-      await socket.wrap('echo "sfw-wrap-test"');
+      // A command that always succeeds: the sfw prefix must not break execution
+      await socket.wrap('node', ['-e', 'console.log("sfw-wrap-test")']);
     });
 
     it('should fall back to plain execution with force flag', async () => {
-      await socket.wrap('echo "force-test"', { force: true });
+      await socket.wrap('node', ['-e', 'console.log("force-test")'], { force: true });
     });
   });
 
@@ -102,37 +102,35 @@ describe('lib/socket (Socket Firewall wrapper)', () => {
 
     it('should classify a plain failure as command-failed with the exit code (force path)', async () => {
       let caught = null;
-      await socket.wrap('node -e "process.exit(3)"', { force: true }).catch((e) => { caught = e; });
+      await socket.wrap('node', ['-e', 'process.exit(3)'], { force: true }).catch((e) => { caught = e; });
       assert.ok(caught, 'expected wrap() to throw');
       assert.strictEqual(caught.reason, 'command-failed');
       assert.strictEqual(caught.code, 3);
     });
 
-    it('should classify a plain failure as command-failed, NOT sfw-blocked (sfw path)', async () => {
-      const available = await socket.isAvailable();
-      if (!available) {
-        return; // skip if sfw not installed
+    it('should classify a plain failure as command-failed, NOT sfw-blocked (sfw path)', async function () {
+      if (!await socket.isAvailable()) {
+        this.skip();
       }
 
       // Old bug: ANY non-zero exit under sfw was reported as a firewall block
       let caught = null;
-      await socket.wrap('node -e "process.exit(4)"').catch((e) => { caught = e; });
+      await socket.wrap('node', ['-e', 'process.exit(4)']).catch((e) => { caught = e; });
       assert.ok(caught, 'expected wrap() to throw');
       assert.strictEqual(caught.reason, 'command-failed');
       assert.strictEqual(caught.code, 4);
     });
 
-    it('should stream output live instead of dumping it after exit (sfw path)', async () => {
-      const available = await socket.isAvailable();
-      if (!available) {
-        return; // skip if sfw not installed
+    it('should stream output live instead of dumping it after exit (sfw path)', async function () {
+      if (!await socket.isAvailable()) {
+        this.skip();
       }
 
       // The child prints a marker then stays alive 1500ms. If wrap() streams,
       // the marker hits stdout well before wrap() resolves; if it buffers
       // (old bug), the marker only appears at resolve time.
       const marker = 'npu-stream-marker-123';
-      const command = `node -e "console.log('${marker}'); setTimeout(() => {}, 1500)"`;
+      const script = `console.log('${marker}'); setTimeout(() => {}, 1500)`;
 
       const originalWrite = process.stdout.write;
       let markerAt = 0;
@@ -145,7 +143,7 @@ describe('lib/socket (Socket Firewall wrapper)', () => {
       };
 
       try {
-        await socket.wrap(command);
+        await socket.wrap('node', ['-e', script]);
       } finally {
         process.stdout.write = originalWrite;
       }
@@ -159,17 +157,18 @@ describe('lib/socket (Socket Firewall wrapper)', () => {
   describe('wrap() stdin', function () {
     this.timeout(20000);
 
-    // The wrapped child reads stdin to its end, as `sfw npm install` does on
-    // Windows. npu runs with stdin closed, so a child that shares it exits;
-    // one handed a pipe npu never closes waits forever.
-    function wrapWithClosedStdin(force) {
-      const child = `node -e \\"process.stdin.resume(); process.stdin.on('end', () => process.exit(0))\\"`;
-      const script = `require('./dist/lib/socket').wrap("${child}", { force: ${force} }).then(() => process.exit(0), () => process.exit(1))`;
+    // The wrapped child reads stdin to its end and exits 0 only on the text it
+    // expects; sfw itself waits for its stdin to close, so a pipe that never
+    // closes would hang it.
+    function wrapWithStdin(stdin, force, expected = '') {
+      const read = `let text = ''; process.stdin.on('data', (d) => { text += d; }); process.stdin.on('end', () => process.exit(text === ${JSON.stringify(expected)} ? 0 : 2))`;
+      const child = JSON.stringify(['-e', read]);
+      const script = `require('./dist/lib/socket').wrap('node', ${child}, { force: ${force} }).then(() => process.exit(0), () => process.exit(1))`;
 
       return new Promise((resolve) => {
         const npu = spawn(process.execPath, ['-e', script], {
           cwd: path.join(__dirname, '..'),
-          stdio: ['ignore', 'ignore', 'inherit'],
+          stdio: [stdin, 'ignore', 'inherit'],
           env: { ...process.env, SFW_SKIP_UPDATE_CHECK: '1' },
         });
         const timer = setTimeout(() => { npu.kill(); resolve('timed out'); }, 10000);
@@ -177,16 +176,82 @@ describe('lib/socket (Socket Firewall wrapper)', () => {
       });
     }
 
-    it('should hand the child npu\'s own stdin (force path)', async () => {
-      assert.strictEqual(await wrapWithClosedStdin(true), 0);
+    it('should finish when npu\'s stdin is closed (force path)', async () => {
+      assert.strictEqual(await wrapWithStdin('ignore', true), 0);
     });
 
-    it('should hand the child npu\'s own stdin (sfw path)', async () => {
-      const available = await socket.isAvailable();
-      if (!available) {
-        return; // skip if sfw not installed
+    it('should finish when npu\'s stdin is closed (sfw path)', async function () {
+      if (!await socket.isAvailable()) {
+        this.skip();
       }
-      assert.strictEqual(await wrapWithClosedStdin(false), 0);
+      assert.strictEqual(await wrapWithStdin('ignore', false), 0);
+    });
+
+    it('should finish when npu\'s stdin is a pipe that never closes (sfw path)', async function () {
+      if (!await socket.isAvailable()) {
+        this.skip();
+      }
+      assert.strictEqual(await wrapWithStdin('pipe', false), 0);
+    });
+
+    it('should hand the child a file redirected to npu\'s stdin (sfw path)', async function () {
+      if (!await socket.isAvailable()) {
+        this.skip();
+      }
+      const file = path.join(os.tmpdir(), `npu-stdin-${process.pid}.txt`);
+      fs.writeFileSync(file, 'y\n');
+      const fd = fs.openSync(file, 'r');
+      try {
+        assert.strictEqual(await wrapWithStdin(fd, false, 'y\n'), 0);
+      } finally {
+        fs.closeSync(fd);
+        fs.rmSync(file, { force: true });
+      }
+    });
+  });
+
+  describe('wrap() args', function () {
+    this.timeout(20000);
+
+    // Each reaches the child as written: through cmd.exe and a .cmd shim, as
+    // npm, npx and sfw are on Windows, and straight through elsewhere
+    const args = ['plain', 'two words', 'C:\\Users\\IWEEDM~1\\g dir\\', `it's`, 'say "hi" & exit', '1"2 & 3', '%PATH%', 'a|b<c>d^e'];
+    const out = path.join(os.tmpdir(), `npu-argv-${process.pid}.json`);
+    const env = { PATH: process.env.PATH, NPU_ARGV_OUT: process.env.NPU_ARGV_OUT, SFW_SKIP_UPDATE_CHECK: process.env.SFW_SKIP_UPDATE_CHECK };
+    const writeArgv = `require('fs').writeFileSync(process.env.NPU_ARGV_OUT, JSON.stringify(process.argv.slice(1)))`;
+
+    before(() => {
+      process.env.SFW_SKIP_UPDATE_CHECK = '1';
+      process.env.NPU_ARGV_OUT = out;
+      process.env.PATH = `${path.join(__dirname, 'fixtures', 'argv')}${path.delimiter}${process.env.PATH}`;
+    });
+
+    after(() => {
+      // A key that was unset goes back to unset, never the string 'undefined'
+      for (const [key, value] of Object.entries(env)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      fs.rmSync(out, { force: true });
+    });
+
+    it('should hand every arg to the child unchanged (force path)', async () => {
+      await socket.wrap('print-args', args, { force: true });
+      assert.deepStrictEqual(JSON.parse(fs.readFileSync(out, 'utf8')), args);
+    });
+
+    it('should hand every arg to an .exe unchanged (force path)', async () => {
+      await socket.wrap('node', ['-e', writeArgv, ...args], { force: true });
+      assert.deepStrictEqual(JSON.parse(fs.readFileSync(out, 'utf8')), args);
+    });
+
+    // sfw starts a .cmd bin with its own quoting, so this checks npu's hop to sfw
+    it('should hand every arg through sfw unchanged (sfw path)', async function () {
+      if (!await socket.isAvailable()) {
+        this.skip();
+      }
+      await socket.wrap('node', ['-e', writeArgv, ...args]);
+      assert.deepStrictEqual(JSON.parse(fs.readFileSync(out, 'utf8')), args);
     });
   });
 

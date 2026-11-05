@@ -1,6 +1,17 @@
 // Libraries
+const fs = require('fs');
 const { execute } = require('node-powertools');
+const { spawn } = require('./spawn');
 const logger = new (require('./logger'))('node-power-user');
+
+// Whether npu's stdin is a file (`npu npx tool < input.txt`); a closed fd 0 is not
+function stdinIsFile() {
+  try {
+    return fs.fstatSync(0).isFile();
+  } catch (e) {
+    return false;
+  }
+}
 
 // Check if sfw (Socket Firewall) is installed
 let _sfwVersion = undefined;
@@ -56,62 +67,65 @@ function isBlockOutput(output) {
   return BLOCK_MARKERS.some((marker) => marker.test(output || ''));
 }
 
-// Wrap a command with sfw if available; force (or no sfw) runs it plain.
-// Output always streams live. Throws on non-zero exit with:
-//   err.reason — 'sfw-blocked' (real firewall block) | 'command-failed'
-//   err.code   — the child's exit code
-async function wrap(command, options) {
+// Wrap a bin and its args with sfw if available; force (or no sfw) runs it
+// plain, output streaming live, each arg reaching the child as written. A
+// non-zero exit throws with err.reason 'sfw-blocked' or 'command-failed', and
+// err.code the exit code.
+async function wrap(bin, args, options) {
   options = options || {};
 
   const wrapped = !options.force && await isFirewallAvailable();
-  const finalCommand = wrapped ? `sfw ${command}` : command;
+  const [file, fileArgs] = wrapped ? ['sfw', [bin, ...args]] : [bin, args];
 
   let output = '';
-  let exitCode = null;
 
-  // The child shares npu's stdin: a pipe npu never closes leaves `sfw npm
-  // install` waiting forever on Windows, and an install that prompts can read
-  // the terminal. Only stdout/stderr are piped, for the live echo below.
-  const executeOptions = { log: !wrapped, config: wrapped ? { stdio: ['inherit', 'pipe', 'pipe'] } : {} };
+  // sfw waits for its stdin to close, so it shares npu's stdin only when that
+  // is a terminal or a redirected file; a pipe may never close, as Git Bash's
+  // mintty gives. Only stdout/stderr are piped, for the live echo below.
+  const stdin = process.stdin.isTTY || stdinIsFile() ? 'inherit' : 'ignore';
+  const config = { stdio: wrapped ? [stdin, 'pipe', 'pipe'] : 'inherit' };
 
   // The wrapped child runs on pipes (not a TTY), which disables color in most
-  // CLIs — restore it, but only when npu itself is printing to a real TTY
+  // CLIs: restore it, but only when npu itself is printing to a real TTY
   if (wrapped && process.stdout.isTTY) {
-    executeOptions.config.env = { ...process.env, FORCE_COLOR: '1' };
+    config.env = { ...process.env, FORCE_COLOR: '1' };
   }
 
-  try {
-    await execute(finalCommand, executeOptions, (child) => {
-      // Echo piped output through LIVE (and capture it for block detection)
-      // instead of letting it buffer invisibly until the process exits
-      if (child.stdout) {
-        child.stdout.on('data', (chunk) => {
-          output += chunk.toString();
-          process.stdout.write(chunk);
-        });
-      }
+  const { code, spawnError } = await new Promise((resolve) => {
+    const child = spawn(file, fileArgs, config);
 
-      if (child.stderr) {
-        child.stderr.on('data', (chunk) => {
-          output += chunk.toString();
-          process.stderr.write(chunk);
-        });
-      }
-
-      child.on('close', (code) => {
-        exitCode = code;
+    // Echo piped output through LIVE (and capture it for block detection)
+    // instead of letting it buffer invisibly until the process exits
+    if (child.stdout) {
+      child.stdout.on('data', (chunk) => {
+        output += chunk.toString();
+        process.stdout.write(chunk);
       });
-    });
-  } catch (e) {
-    const blocked = wrapped && isBlockOutput(output);
-    const err = blocked
-      ? new Error('Blocked by Socket Firewall — it flagged a risky package.')
-      : new Error(`Command failed with exit code ${exitCode === null ? 1 : exitCode}.`);
+    }
 
-    err.reason = blocked ? 'sfw-blocked' : 'command-failed';
-    err.code = exitCode === null ? 1 : exitCode;
-    throw err;
+    if (child.stderr) {
+      child.stderr.on('data', (chunk) => {
+        output += chunk.toString();
+        process.stderr.write(chunk);
+      });
+    }
+
+    child.on('error', (e) => resolve({ code: null, spawnError: e }));
+    child.on('close', (exitCode) => resolve({ code: exitCode }));
+  });
+
+  if (code === 0) {
+    return;
   }
+
+  const blocked = wrapped && isBlockOutput(output);
+  const err = blocked
+    ? new Error('Blocked by Socket Firewall: it flagged a risky package.')
+    : new Error(spawnError ? `Could not run ${file}: ${spawnError.message}` : `Command failed with exit code ${code === null ? 1 : code}.`);
+
+  err.reason = blocked ? 'sfw-blocked' : 'command-failed';
+  err.code = code === null ? 1 : code;
+  throw err;
 }
 
 // Socket Firewall handles protection at install time — no separate audit step needed

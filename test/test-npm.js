@@ -28,11 +28,10 @@ describe('commands/npm (sfw-wrapped passthrough, end-to-end via bin)', function 
     assert.match(result.combined, /npm init/);
   });
 
-  it('should run wrapped with sfw when available', async () => {
+  it('should run wrapped with sfw when available', async function () {
     const socket = require('../dist/lib/socket');
-    const available = await socket.isAvailable();
-    if (!available) {
-      return; // skip if sfw not installed
+    if (!await socket.isAvailable()) {
+      this.skip();
     }
 
     const result = runNpu(['npm', '--version']);

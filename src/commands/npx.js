@@ -36,7 +36,7 @@ module.exports = async function (options) {
   // (--package still downloads even without a positional, so it stays wrapped.)
   if (!binaryName && !npxArgs.forcesDownload(childArgs)) {
     try {
-      await socket.wrap(command, { force: true });
+      await socket.wrap('npx', childArgs, { force: true });
     } catch (e) {
       process.exitCode = e.code || 1;
     }
@@ -64,7 +64,7 @@ module.exports = async function (options) {
 
   // Wrap with Socket Firewall (plain run for local binaries / --force)
   try {
-    await socket.wrap(command, { force: force || isLocal });
+    await socket.wrap('npx', childArgs, { force: force || isLocal });
   } catch (e) {
     process.exitCode = e.code || 1;
     logger.log('');

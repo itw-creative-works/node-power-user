@@ -6,7 +6,8 @@
 // Tokens that select the npx command (positional + flag alias)
 const NPX_TOKENS = ['npx', '--npx'];
 
-// Args matching this need no quoting for POSIX sh or cmd.exe (commands run with shell: true)
+// Args matching this go unquoted, in a shown command and in the cmd.exe line
+// spawn.js builds, so a char added here must be safe on that line too
 const SAFE_ARG = /^[A-Za-z0-9_\-./@=:,+]+$/;
 
 // Split raw argv into npu's own flags (before the command token) and the
@@ -47,8 +48,8 @@ function firstPositional(args) {
   return (args || []).find((arg) => !arg.startsWith('-')) || null;
 }
 
-// Quote an arg for the shell when it contains anything unsafe: single quotes
-// for POSIX sh; double quotes for cmd.exe, which keeps single quotes as text,
+// Quote an arg for a shown command (the Running line, a retry hint) and for
+// spawn.js's cmd.exe line when it holds anything unsafe: single quotes for POSIX sh; double quotes for cmd.exe,
 // escaped the way the C runtime splits argv (backslashes before a quote double)
 function quoteArg(arg, platform = process.platform) {
   if (SAFE_ARG.test(arg)) {
@@ -62,12 +63,12 @@ function quoteArg(arg, platform = process.platform) {
   return `'${String(arg).replace(/'/g, `'\\''`)}'`;
 }
 
-// Quote each arg and join them, the one way every command string is built
+// Quote each arg and join them, the one way every shown command is built
 function quoteArgs(args, platform = process.platform) {
   return args.map((arg) => quoteArg(arg, platform)).join(' ');
 }
 
-// Rebuild the npx command string with shell-safe quoting
+// The npx command as shown to the user
 function buildCommand(childArgs, platform = process.platform) {
   return `npx ${quoteArgs(childArgs, platform)}`.trim();
 }

@@ -324,7 +324,7 @@ module.exports = async function (options) {
     npm.removeLocations(desynced.map(d => d.loc), projectPath);
 
     try {
-      await socket.wrap('npm install', { force: options.force });
+      await socket.wrap('npm', ['install'], { force: options.force });
     } catch (e) {
       // Restore the lockfile so the failed run can't advance it further
       if (lockfileBackup) {
@@ -369,8 +369,8 @@ module.exports = async function (options) {
       return { allPackages, desynced, synced: false };
     }
 
-    const installCmd = `npm install ${toSync.map(pkg => `${pkg.name}@${pkg.packageVersion}`).join(' ')}`;
-    logger.log(logger.format.cyan(`\nRunning ${installCmd}...`));
+    const installArgs = ['install', ...toSync.map(pkg => `${pkg.name}@${pkg.packageVersion}`)];
+    logger.log(logger.format.cyan(`\nRunning npm ${installArgs.join(' ')}...`));
 
     const lockfileBackup = jetpack.read(lockfilePath);
 
@@ -379,7 +379,7 @@ module.exports = async function (options) {
     npm.removeInstalledCopies(toSync.map(pkg => pkg.name), projectPath);
 
     try {
-      await socket.wrap(installCmd, { force: options.force });
+      await socket.wrap('npm', installArgs, { force: options.force });
     } catch (e) {
       // Restore the lockfile so a blocked/failed install can't leave it
       // advanced past the physical files (that desync is what mints loops)
@@ -497,15 +497,15 @@ module.exports = async function (options) {
 
   // Install the specific upgraded packages so npm actually pulls them in
   // (plain `npm install` won't upgrade packages that already satisfy the range)
-  const installCmd = `npm install ${packageNames.map(name => `${name}@${version.clean(upgrades[name])}`).join(' ')}`;
-  logger.log(logger.format.cyan(`\nRunning ${installCmd}...`));
+  const installArgs = ['install', ...packageNames.map(name => `${name}@${version.clean(upgrades[name])}`)];
+  logger.log(logger.format.cyan(`\nRunning npm ${installArgs.join(' ')}...`));
 
   // Remove stale node_modules copies first so npm actually re-fetches them
   // instead of trusting the hidden lockfile and reporting "up to date"
   npm.removeInstalledCopies(packageNames, projectPath);
 
   try {
-    await socket.wrap(installCmd, { force: options.force });
+    await socket.wrap('npm', installArgs, { force: options.force });
   } catch (e) {
     // Restore both manifests since the bulk install failed
     jetpack.write(packageJsonPath, packageJsonBackup);

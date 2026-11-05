@@ -53,7 +53,7 @@ module.exports = async function (options) {
 
   // Wrap with Socket Firewall
   try {
-    await socket.wrap(command, { force });
+    await socket.wrap('npm', ['install', ...childArgs], { force });
   } catch (e) {
     process.exitCode = e.code || 1;
 
