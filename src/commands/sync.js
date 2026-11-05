@@ -3,6 +3,7 @@ const logger = new (require('../lib/logger'))('node-power-user');
 const path = require('path');
 const jetpack = require('fs-jetpack');
 const { execute } = require('node-powertools');
+const { spawnSync } = require('child_process');
 const inquirer = require('@inquirer/prompts');
 
 // Load package.json files
@@ -78,12 +79,8 @@ module.exports = async function (options) {
 
     // Commit and push changes
     logger.log('Committing and pushing changes...');
-    const pushCommand = `git commit -m "${message}" && git push origin`;
-
-    await execute(pushCommand, {
-      log: true,
-      config: {cwd: repoRoot},
-    });
+    run('git', ['commit', '-m', message], repoRoot);
+    run('git', ['push', 'origin'], repoRoot);
 
     // Log success
     logger.log(logger.format.green('Sync completed successfully!'));
@@ -117,6 +114,14 @@ function ask(options) {
     message: options.message,
     default: options.default,
   });
+}
+
+// Run git with its args as an argv, no shell, so a message reaches git as typed
+function run(bin, args, cwd) {
+  const result = spawnSync(bin, args, { cwd, stdio: 'inherit' });
+  if (result.status !== 0) {
+    throw new Error(`${bin} ${args[0]} exited ${result.status ?? result.error?.message}`);
+  }
 }
 
 function findGitRoot(startPath) {
